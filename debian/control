@@ -47,7 +47,7 @@ Description: intuitive network emulator that interacts with real nets (metapacka
    5. The emulated machines can use several resources and programs
       installed on the real machine, as tcpdump.
  .
- This is a metapackage that provides the daemon and the GUI of the CORE.
+ This is a metapackage depending on the packages for the CORE daemon and GUI.
 
 Package: core-network-daemon
 Architecture: any
@@ -81,8 +81,8 @@ Description: intuitive network emulator that interacts with real nets (daemon)
    5. The emulated machines can use several resources and programs
       installed on the real machine, as tcpdump.
  .
- This package provides the daemon that make available the emulated
- network for one or several environments.
+ This package provides the daemon that makes the emulated
+ network available for one or several environments.
 
 Package: core-network-gui
 Architecture: any
@@ -110,4 +110,4 @@ Description: intuitive network emulator that interacts with real nets (GUI)
    5. The emulated machines can use several resources and programs
       installed on the real machine, as tcpdump.
  .
- This package provides the GUI of the CORE.
+ This package provides the CORE GUI.
