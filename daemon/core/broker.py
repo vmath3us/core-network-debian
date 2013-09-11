@@ -184,6 +184,10 @@ class CoreBroker(ConfigurableManager):
                 (coreapi.CORE_API_ADD_FLAG | coreapi.CORE_API_LOC_FLAG):
                 self.incrbootcount()
                 self.session.checkruntime()
+        elif msgtype == coreapi.CORE_API_LINK_MSG:
+            # this allows green link lines for remote WLANs
+            msg = coreapi.CoreLinkMessage(msgflags, msghdr, msgdata)
+            self.session.sdt.handledistributed(msg)
 
         self.session.broadcastraw(None, data)
         if count is not None and count < 1:
@@ -529,7 +533,7 @@ class CoreBroker(ConfigurableManager):
             # broadcast location and services configuration everywhere
             confobj = msg.gettlv(coreapi.CORE_TLV_CONF_OBJ)
             if confobj == "location" or confobj == "services" or \
-               confobj == "session":
+               confobj == "session" or confobj == "all":
                 serverlist = self.getserverlist()
         elif msg.msgtype == coreapi.CORE_API_FILE_MSG:
             # broadcast hook scripts and custom service files everywhere
@@ -779,6 +783,14 @@ class CoreBroker(ConfigurableManager):
             self.session._handlerslock.release()
         return host
 
+    def handlerawmsg(self, msg):
+        ''' Helper to invoke handlemsg() using raw (packed) message bytes.
+        '''
+        hdr = msg[:coreapi.CoreMessage.hdrsiz]
+        msgtype, flags, msglen = coreapi.CoreMessage.unpackhdr(hdr)
+        msgcls = coreapi.msg_class(msgtype)
+        return self.handlemsg(msgcls(flags, hdr, msg[coreapi.CoreMessage.hdrsiz:]))
+        
     def forwardmsg(self, msg, serverlist, handle_locally):
         ''' Forward API message to all servers in serverlist; if an empty 
             host/port is encountered, set the handle_locally flag. Returns the
