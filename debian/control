@@ -19,10 +19,10 @@ Build-Depends: debhelper (>= 9),
 Standards-Version: 3.9.4
 Homepage: http://cs.itd.nrl.navy.mil/work/core
 Vcs-Git: git://anonscm.debian.org/collab-maint/core-network.git
-Vcs-Browser: http://anonscm.debian.org/git/collab-maint/core-network.git
+Vcs-Browser: http://anonscm.debian.org/gitweb/?p=collab-maint/core-network.git
 
 Package: core-network
-Architecture: any
+Architecture: all
 Depends: ${misc:Depends}, core-network-daemon, core-network-gui
 Suggests: tcpdump
 Description: intuitive network emulator that interacts with real nets (metapackage)

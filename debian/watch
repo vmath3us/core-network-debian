@@ -1,3 +1,3 @@
 version=3
 opts="dversionmangle=s/~//" \
-http://hipserver.mct.phantomworks.org/core/pub-4.6rc5/core-(.*)\.tar\.gz
+http://hipserver.mct.phantomworks.org/core/pub-4.6rc6/core-(.*)\.tar\.gz
