@@ -40,9 +40,13 @@ class CtrlNet(LxBrNet):
             addr = self.prefix.addr(self.hostid)
         else:
             addr = self.prefix.maxaddr()
+        msg = "Added control network bridge: %s %s" % \
+                (self.brname, self.prefix)
         addrlist = ["%s/%s" % (addr, self.prefix.prefixlen)]
         if self.assign_address:
             self.addrconfig(addrlist = addrlist)
+            msg += " address %s" % addr
+        self.session.info(msg)
         if self.updown_script is not None:
             self.info("interface %s updown script '%s startup' called" % \
                       (self.brname, self.updown_script))
@@ -228,6 +232,7 @@ class RJ45Node(PyCoreNode, PyCoreNetIf):
         network.
     '''
     apitype = coreapi.CORE_NODE_RJ45
+    type = "rj45"
     
     def __init__(self, session, objid = None, name = None, mtu = 1500,
                  verbose = False, start = True):
@@ -241,7 +246,6 @@ class RJ45Node(PyCoreNode, PyCoreNetIf):
         # the following are PyCoreNetIf attributes
         self.transport_type = "raw"
         self.localname = name
-        self.type = "rj45"
         if start:
             self.startup()
 

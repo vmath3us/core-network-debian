@@ -425,6 +425,25 @@ class CoreMessage(object):
         while data:
             tlv, data = self.tlvcls.unpack(data)
             self.addtlvdata(tlv.tlvtype, tlv.value)
+            
+    def packtlvdata(self):
+        ''' Opposite of parsedata(). Return packed TLV data using
+        self.tlvdata dict. Used by repack().
+        '''
+        tlvdata = ""
+        keys = sorted(self.tlvdata.keys())
+        for k in keys:
+            v = self.tlvdata[k]
+            tlvdata += self.tlvcls.pack(k, v)
+        return tlvdata
+    
+    def repack(self):
+        ''' Invoke after updating self.tlvdata[] to rebuild self.rawmsg.
+        Useful for modifying a message that has been parsed, before
+        sending the raw data again.
+        '''
+        tlvdata = self.packtlvdata()
+        self.rawmsg = self.pack(self.flags, tlvdata)
 
     def typestr(self):
         try:

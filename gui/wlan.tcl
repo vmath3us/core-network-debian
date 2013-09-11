@@ -254,10 +254,19 @@ proc moveNode { c node img xpos ypos dx dy } {
 # called from cfgparse when loading imn file
 proc upgradeWlanConfigs {} {
     global node_list
+    set model_list [getPluginsCapList]
     foreach node $node_list {
 	if { [nodeType $node] != "wlan" } { continue }
 	set modcfg [netconfFetchSection $node "mobmodel"]
-	if { [lindex $modcfg 0] == "range" } { upgradeWlanRangeConfig $node }
+	if { [lindex $modcfg 0] == "range" } {
+	    upgradeWlanRangeConfig $node
+	    set modcfg [netconfFetchSection $node "mobmodel"]
+	}
+	foreach model [lrange $modcfg 1 end] {
+	    if { [lsearch $model_list "*=$model"] == -1 } {
+		puts "***Warning: missing model '$model'!"
+	    }
+	}
     }
 }
 
@@ -445,7 +454,7 @@ proc wlanConfigDialogHelper { wi target apply } {
 
     $spinbox $de.value3 -justify right -width 5 -validate focus
     if { [lindex $systype 0] == "Linux" } {
-	ttk::label $de.label3 -anchor w -text "Packet Error Rate (%):"
+	ttk::label $de.label3 -anchor w -text "Loss (%):"
 	$de.value3 configure -from 0 -to 100.0 -increment 0.1
     } else { ;# netgraph
 	ttk::label $de.label3 -anchor w -text "Bit Error (1/N):"

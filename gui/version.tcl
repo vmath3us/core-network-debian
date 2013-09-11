@@ -6,5 +6,5 @@
 #
 # define the version number and release date here
 #
-set CORE_VERSION 4.6rc5
-set CORE_VERSION_DATE 20130828
+set CORE_VERSION 4.6rc6
+set CORE_VERSION_DATE 20130910

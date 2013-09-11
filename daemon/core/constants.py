@@ -1,5 +1,5 @@
 # Constants created by autoconf ./configure script
-COREDPY_VERSION		= "4.6rc5"
+COREDPY_VERSION		= "4.6rc6"
 CORE_STATE_DIR		= "/var"
 CORE_CONF_DIR		= "/etc/core"
 CORE_DATA_DIR		= "/usr/local/share/core"
