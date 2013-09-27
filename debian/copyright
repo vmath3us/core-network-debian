@@ -1,7 +1,7 @@
 Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: core
 Source: http://cs.itd.nrl.navy.mil/work/core or
-        http://hipserver.mct.phantomworks.org/core/pub-4.6rc6
+        http://hipserver.mct.phantomworks.org/core/pub-4.6/source (temporary)
 
 Files: *
 Copyright: 2005-2013, the Boeing Company,

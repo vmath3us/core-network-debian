@@ -1,3 +1,10 @@
+core-network (4.6-1) unstable; urgency=low
+
+  * New upstream release.
+  * debian/watch: updated.
+
+ -- Joao Eriberto Mota Filho <eriberto@eriberto.pro.br>  Thu, 26 Sep 2013 21:21:53 -0300
+
 core-network (4.6~rc6-1) unstable; urgency=low
 
   * New upstream release.
