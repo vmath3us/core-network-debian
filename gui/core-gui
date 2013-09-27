@@ -51,7 +51,7 @@ case $1 in
     exit 0
     ;; 
 -v | --version) 
-    exec echo "`basename $0` version 4.6rc6 (20130910)"
+    exec echo "`basename $0` version 4.6 (20130925)"
     exit 0
     ;; 
 esac
