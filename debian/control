@@ -86,7 +86,7 @@ Description: intuitive network emulator that interacts with real nets (daemon)
 
 Package: core-network-gui
 Architecture: any
-Depends: ${misc:Depends}, libtk-img, tk
+Depends: ${misc:Depends}, libtk-img, tk8.5
 Suggests: core-network-daemon, tcpdump
 Description: intuitive network emulator that interacts with real nets (GUI)
  The Common Open Research Emulator (CORE) is a tool for emulating

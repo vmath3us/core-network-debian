@@ -1,3 +1,12 @@
+core-network (4.6-2) unstable; urgency=low
+
+  * debian/control: changed dependency from tk to tk8.5, in core-network-gui
+    binary, to keep compatibility with current upstream version. Thanks a lot
+    to Sergei Golovan. (Closes: #725764)
+  * debian/watch: removed useless comments.
+
+ -- Joao Eriberto Mota Filho <eriberto@eriberto.pro.br>  Thu, 10 Oct 2013 11:07:40 -0300
+
 core-network (4.6-1) unstable; urgency=low
 
   * New upstream release.
