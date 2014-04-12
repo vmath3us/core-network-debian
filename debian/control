@@ -14,9 +14,10 @@ Build-Depends: debhelper (>= 9),
                iproute2,
                libev-dev,
                pkg-config,
+               procps,
                python-dev,
                python-support
-Standards-Version: 3.9.4
+Standards-Version: 3.9.5
 Homepage: http://cs.itd.nrl.navy.mil/work/core
 Vcs-Git: git://anonscm.debian.org/collab-maint/core-network.git
 Vcs-Browser: http://anonscm.debian.org/gitweb/?p=collab-maint/core-network.git

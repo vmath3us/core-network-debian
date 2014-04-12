@@ -1,2 +1,2 @@
 version=3
-http://downloads.pf.itd.nrl.navy.mil/core/source/core-(.*)\.tar\.gz
+http://downloads.pf.itd.nrl.navy.mil/core/source/core-(\d\S+)\.tar\.(?:bz2|gz|xz)

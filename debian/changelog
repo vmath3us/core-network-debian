@@ -1,3 +1,13 @@
+core-network (4.6-3) unstable; urgency=medium
+
+  * debian/control:
+      - Added procps as Build-Depends.
+      - Bumped Standards-Version from 3.9.4 to 3.9.5.
+  * debian/copyright: updated the packaging copyright years.
+  * debian/watch: improved.
+
+ -- Joao Eriberto Mota Filho <eriberto@eriberto.pro.br>  Mon, 07 Apr 2014 17:45:57 -0300
+
 core-network (4.6-2) unstable; urgency=low
 
   * debian/control: changed dependency from tk to tk8.5, in core-network-gui
