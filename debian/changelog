@@ -1,3 +1,14 @@
+core-network (4.6-4) unstable; urgency=medium
+
+  * debian/control:
+      - Added iproute as an alternative to iproute2 dependency in Build-Depends
+        and core-network-daemon binary to avoid problems with wheezy-backports.
+      - core-network-gui binary modifications:
+          - Added tshark and wireshark to Suggests field.
+          - Changed tcpdump from Suggests to Recommends field.
+
+ -- Joao Eriberto Mota Filho <eriberto@eriberto.pro.br>  Tue, 08 Apr 2014 13:45:09 -0300
+
 core-network (4.6-3) unstable; urgency=medium
 
   * debian/control:

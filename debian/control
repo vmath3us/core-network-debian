@@ -11,7 +11,7 @@ Build-Depends: debhelper (>= 9),
                gcc (>= 4.8.1-2~),
                help2man,
                imagemagick,
-               iproute2,
+               iproute2 | iproute,
                libev-dev,
                pkg-config,
                procps,
@@ -56,7 +56,7 @@ Depends: ${shlibs:Depends},
          ${misc:Depends},
          bridge-utils,
          ebtables,
-         iproute2,
+         iproute2 | iproute,
          python
 Recommends: quagga
 Suggests: core-network-gui
@@ -88,7 +88,8 @@ Description: intuitive network emulator that interacts with real nets (daemon)
 Package: core-network-gui
 Architecture: any
 Depends: ${misc:Depends}, libtk-img, tk8.5
-Suggests: core-network-daemon, tcpdump
+Recommends: tcpdump
+Suggests: core-network-daemon, tshark, wireshark
 Description: intuitive network emulator that interacts with real nets (GUI)
  The Common Open Research Emulator (CORE) is a tool for emulating
  networks in one or more machines. You can connect these emulated
