@@ -2,7 +2,7 @@
 #export DH_VERBOSE=1
 
 %:
-	dh $@  --with autotools-dev --parallel
+	dh $@  --with autotools-dev,python2 --parallel
 
 override_dh_auto_configure:
 	sh bootstrap.sh

@@ -1,10 +1,9 @@
 Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: core
-Source: http://cs.itd.nrl.navy.mil/work/core or
-        http://hipserver.mct.phantomworks.org/core/pub-4.6/source (temporary)
+Source: http://cs.itd.nrl.navy.mil/work/core
 
 Files: *
-Copyright: 2005-2013, the Boeing Company,
+Copyright: 2005-2014, the Boeing Company,
            by Jeffrey M. Ahrenholz <jeffrey.m.ahrenholz@boeing.com>
 License: BSD-2-clause
 
@@ -18,11 +17,15 @@ Copyright: 2005-2008, University of Zagreb, Croatia
            2005-2013, the Boeing Company
 License: BSD-2-clause
 
-Files: gui/core.tcl gui/editor.tcl gui/exec.tcl gui/filemgmt.tcl gui/help.tcl
-       gui/initgui.tcl gui/linkcfg.tcl gui/nodecfg.tcl gui/ns2imunes.tcl
-       gui/core-gui.in
+Files: gui/core.tcl gui/editor.tcl gui/exec.tcl gui/help.tcl gui/linkcfg.tcl
+       gui/nodecfg.tcl gui/ns2imunes.tcl
 Copyright: 2004-2008, University of Zagreb, Croatia
            2005-2013, the Boeing Company
+License: BSD-2-clause
+
+Files: gui/filemgmt.tcl gui/initgui.tcl gui/core-gui.in
+Copyright: 2004-2008, University of Zagreb, Croatia
+           2005-2014, the Boeing Company
 License: BSD-2-clause
 
 Files: gui/gpgui.tcl
@@ -72,7 +75,7 @@ Copyright: 1995-2005, Kurt Garloff, SUSE / Novell Inc.
 License: LGPL2.1+
 
 Files: debian/*
-Copyright: 2013-2014 Joao Eriberto Mota Filho <eriberto@eriberto.pro.br>,
+Copyright: 2013-2014 Joao Eriberto Mota Filho <eriberto@debian.org>,
                      Jeffrey M. Ahrenholz <jeffrey.m.ahrenholz@boeing.com>
 License: BSD-2-clause
 
