@@ -45,7 +45,7 @@ class Session(object):
     ''' CORE session manager.
     '''
     def __init__(self, sessionid = None, cfg = {}, server = None,
-                 persistent = False):
+                 persistent = False, mkdir = True):
         if sessionid is None:
             # try to keep this short since it's used to construct
             # network interface names
@@ -57,7 +57,8 @@ class Session(object):
         self.sessionid = sessionid
         self.sessiondir = os.path.join(tempfile.gettempdir(),
                                        "pycore.%s" % self.sessionid)
-        os.mkdir(self.sessiondir)
+        if mkdir:
+            os.mkdir(self.sessiondir)
         self.name = None
         self.filename = None
         self.thumbnail = None
@@ -119,9 +120,12 @@ class Session(object):
     def shutdown(self):
         ''' Shut down all emulation objects and remove the session directory.
         '''
-        self.emane.shutdown()
-        self.broker.shutdown()
-        self.sdt.shutdown()
+        if hasattr(self, 'emane'):
+            self.emane.shutdown()
+        if hasattr(self, 'broker'):
+            self.broker.shutdown()
+        if hasattr(self, 'sdt'):
+            self.sdt.shutdown()
         self.delobjs()
         preserve = False
         if hasattr(self.options, 'preservedir'):
@@ -220,19 +224,16 @@ class Session(object):
         self._time = time.time()
         self._state = state
         replies = []
-
-        if not self.isconnected():
-            return replies
-        if info:
+        if self.isconnected() and info:
             statename = coreapi.state_name(state)
-            self._handlerslock.acquire()
-            for handler in self._handlers:
-                handler.info("SESSION %s STATE %d: %s at %s" % \
-                             (self.sessionid, state, statename, time.ctime()))
-            self._handlerslock.release()
+            with self._handlerslock:
+                for handler in self._handlers:
+                    handler.info("SESSION %s STATE %d: %s at %s" % \
+                                (self.sessionid, state, statename,
+                                 time.ctime()))
         self.writestate(state)
         self.runhook(state)
-        if sendevent:
+        if self.isconnected() and sendevent:
             tlvdata = ""
             tlvdata += coreapi.CoreEventTlv.pack(coreapi.CORE_TLV_EVENT_TYPE,
                                                  state)
@@ -320,6 +321,7 @@ class Session(object):
         '''
         env = os.environ.copy()
         env['SESSION'] = "%s" % self.sessionid
+        env['SESSION_SHORT'] = "%s" % self.shortsessionid()
         env['SESSION_DIR'] = "%s" % self.sessiondir
         env['SESSION_NAME'] = "%s" % self.name
         env['SESSION_FILENAME'] = "%s" % self.filename
@@ -534,6 +536,7 @@ class Session(object):
                 tlvdata += coreapi.CoreExceptionTlv.pack(
                                     eval("coreapi.CORE_TLV_EXCP_%s" % t), v)
         msg = coreapi.CoreExceptionMessage.pack(0, tlvdata)
+        self.warn("exception: %s (%s) %s" % (source, objid, text))
         # send Exception Message to connected handlers (e.g. GUI)
         self.broadcastraw(None, msg)
 
@@ -586,6 +589,24 @@ class Session(object):
         # nodes on slave servers that will be booted and those servers will
         # send a node status response message
         self.checkruntime()
+        
+    def getnodecount(self):
+        ''' Returns the number of CoreNodes and CoreNets, except for those
+        that are not considered in the GUI's node count.
+        '''
+
+        with self._objslock:
+            count = len(filter(lambda(x): \
+                               not isinstance(x, (nodes.PtpNet, nodes.CtrlNet)),
+                               self.objs()))
+            # on Linux, GreTapBridges are auto-created, not part of 
+            # GUI's node count
+            if 'GreTapBridge' in globals():
+                count -= len(filter(lambda(x): \
+                                    isinstance(x, GreTapBridge) and not \
+                                    isinstance(x, nodes.TunnelNode),
+                                    self.objs()))
+        return count
 
     def checkruntime(self):
         ''' Check if we have entered the runtime state, that all nodes have been
@@ -600,20 +621,7 @@ class Session(object):
         if self.getstate() == coreapi.CORE_EVENT_RUNTIME_STATE:
             return
         session_node_count = int(self.node_count)
-        nc = 0
-        with self._objslock:
-            for obj in self.objs():
-                # these networks may be added by the daemon and are not
-                # considered in the GUI's node count
-                if isinstance(obj, (nodes.PtpNet, nodes.CtrlNet)):
-                    continue
-                # on Linux, GreTapBridges are auto-created, not part of GUI's
-                # node count
-                if 'GreTapBridge' in globals():
-                    if isinstance(obj, GreTapBridge) and \
-                       not isinstance(obj, nodes.TunnelNode):
-                        continue
-                nc += 1
+        nc = self.getnodecount()
         # count booted nodes not emulated on this server
         # TODO: let slave server determine RUNTIME and wait for Event Message
         # broker.getbootocunt() counts all CoreNodes from status reponse 
@@ -681,40 +689,41 @@ class Session(object):
         '''
         return (self.sessionid >> 8) ^ (self.sessionid & ((1 << 8) - 1))
         
+    def sendnodeemuid(self, handler, nodenum):
+        ''' Send back node messages to the GUI for node messages that had
+            the status request flag.
+        '''
+        if handler is None:
+            return
+        if nodenum in handler.nodestatusreq:
+            tlvdata = ""
+            tlvdata += coreapi.CoreNodeTlv.pack(coreapi.CORE_TLV_NODE_NUMBER,
+                                                nodenum)
+            tlvdata += coreapi.CoreNodeTlv.pack(coreapi.CORE_TLV_NODE_EMUID,
+                                                nodenum)
+            reply = coreapi.CoreNodeMessage.pack(coreapi.CORE_API_ADD_FLAG \
+                                               | coreapi.CORE_API_LOC_FLAG,
+                                                 tlvdata)
+            try:
+                handler.request.sendall(reply)
+            except Exception, e:
+                self.warn("sendall() for node: %d error: %s" % (nodenum, e))
+            del handler.nodestatusreq[nodenum]
+
     def bootnodes(self, handler):
         ''' Invoke the boot() procedure for all nodes and send back node 
             messages to the GUI for node messages that had the status
             request flag.
         '''
-        #self.addremovectrlif(node=None, remove=False)
         with self._objslock:
             for n in self.objs():
-                if not isinstance(n, nodes.PyCoreNode):
-                    continue
-                if isinstance(n, nodes.RJ45Node):
-                    continue
-                # add a control interface if configured
-                self.addremovectrlif(node=n, remove=False)
-                n.boot()
-                nodenum = n.objid
-                if handler is None:
-                    continue
-                if nodenum in handler.nodestatusreq:
-                    tlvdata = ""
-                    tlvdata += coreapi.CoreNodeTlv.pack(coreapi.CORE_TLV_NODE_NUMBER,
-                                                        nodenum)
-                    tlvdata += coreapi.CoreNodeTlv.pack(coreapi.CORE_TLV_NODE_EMUID,
-                                                        n.objid)
-                    reply = coreapi.CoreNodeMessage.pack(coreapi.CORE_API_ADD_FLAG \
-                                                       | coreapi.CORE_API_LOC_FLAG,
-                                                         tlvdata)
-                    try:
-                        handler.request.sendall(reply)
-                    except Exception, e:
-                        self.warn("sendall() error: %s" % e)
-                    del handler.nodestatusreq[nodenum]
+                if isinstance(n, nodes.PyCoreNode) and \
+                  not isinstance(n, nodes.RJ45Node):
+                    # add a control interface if configured
+                    self.addremovectrlif(node=n, remove=False)
+                    n.boot()
+                self.sendnodeemuid(handler, n.objid)
         self.updatectrlifhosts()
-    
     
     def validatenodes(self):
         with self._objslock:
@@ -762,6 +771,11 @@ class Session(object):
                 updown_script = self.cfg['controlnet_updown_script']
         except KeyError:
             pass
+        # Check if session option set, overwrite if so
+        if hasattr(self.options, 'controlnet_updown_script'):
+            new_uds = self.options.controlnet_updown_script
+        if new_uds:
+            updown_script = new_uds
             
         prefixes = prefix.split()
         if len(prefixes) > 1:
@@ -981,12 +995,16 @@ class SessionConfig(ConfigurableManager, Configurable):
     _confmatrix = [
         ("controlnet", coreapi.CONF_DATA_TYPE_STRING, '', '',
          'Control network'), 
+        ("controlnet_updown_script", coreapi.CONF_DATA_TYPE_STRING, '', '',
+         'Control network script'), 
         ("enablerj45", coreapi.CONF_DATA_TYPE_BOOL, '1', 'On,Off', 
          'Enable RJ45s'),
         ("preservedir", coreapi.CONF_DATA_TYPE_BOOL, '0', 'On,Off',
          'Preserve session dir'),
         ("enablesdt", coreapi.CONF_DATA_TYPE_BOOL, '0', 'On,Off', 
          'Enable SDT3D output'),
+        ("sdturl", coreapi.CONF_DATA_TYPE_STRING, Sdt.DEFAULT_SDT_URL, '',
+         'SDT3D URL'),
         ]
     _confgroups = "Options:1-%d" % len(_confmatrix)
     

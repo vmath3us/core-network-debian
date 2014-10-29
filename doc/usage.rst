@@ -88,6 +88,13 @@ The session number is printed in the terminal when batch mode is started. This s
 The GUI can be run as a normal user on Linux. For FreeBSD, the GUI should be run
 as root in order to start an emulation.
 
+.. index:: port number
+
+The GUI can be connected to a different address or TCP port using
+the ``--address`` and/or ``--port`` options. The defaults are shown below.
+::
+           core-gui --address 127.0.0.1 --port 4038
+
 .. _Toolbar:
 
 Toolbar
@@ -1633,6 +1640,12 @@ defines the service; then the `custom_services_dir` entry must be set
 in the :file:`/etc/core/core.conf` configuration file. A sample is provided in
 the :file:`myservices/` directory.
 
+.. NOTE::
+   The directory name used in `custom_services_dir` should be unique and 
+   should not correspond to
+   any existing Python module name. For example, don't use the name `subprocess`
+   or `services`.
+
 If you have created a new service type that may be useful to others, please
 consider contributing it to the CORE project.
 
@@ -1686,7 +1699,7 @@ file, you will need to stop the emulation if it were running and reload the
 file.
 
 The :file:`.xml` file schema
-is `specified by NRL <http://cs.itd.nrl.navy.mil/work/mnmtools/index.php>`_.
+is `specified by NRL <http://www.nrl.navy.mil/itd/ncs/products/mnmtools>`_.
 Planning documents are specified in NRL's Network Modeling Framework (NMF).
 Here the individual planning documents are several tags
 encased in one `<Scenario>` tag:

@@ -55,9 +55,12 @@ class SimpleLxcNode(PyCoreNode):
                   "-p", self.ctrlchnlname + ".pid"]
         if self.nodedir:
             vnoded += ["-C", self.nodedir]
+        env = self.session.getenviron(state=False)
+        env['NODE_NUMBER'] = str(self.objid)
+        env['NODE_NAME'] = str(self.name)
+
         try:
-            tmp = subprocess.Popen(vnoded, stdout = subprocess.PIPE,
-                                   env = self.session.getenviron(state=False))
+            tmp = subprocess.Popen(vnoded, stdout = subprocess.PIPE, env = env)
         except OSError, e:
             msg = "error running vnoded command: %s (%s)" % (vnoded, e)
             self.exception(coreapi.CORE_EXCP_LEVEL_FATAL,
@@ -164,8 +167,8 @@ class SimpleLxcNode(PyCoreNode):
             if ifname is None:
                 ifname = "eth%d" % ifindex
             sessionid = self.session.shortsessionid()
-            name = "n%s.%s.%s" % (self.objid, ifindex, sessionid)
-            localname = "n%s.%s.%s" % (self.objid, ifname, sessionid)
+            name = "veth%s.%s.1.%s" % (self.objid, ifindex, sessionid)
+            localname = "veth%s.%s.%s" % (self.objid, ifindex, sessionid)
             if len(ifname) > 16:
                 raise ValueError, "interface local name '%s' to long" % \
                         localname
@@ -195,7 +198,7 @@ class SimpleLxcNode(PyCoreNode):
             if ifname is None:
                 ifname = "eth%d" % ifindex
             sessionid = self.session.shortsessionid()
-            localname = "n%s.%s.%s" % (self.objid, ifindex, sessionid)
+            localname = "tap%s.%s.%s" % (self.objid, ifindex, sessionid)
             name = ifname
             ifclass = TunTap
             tuntap = ifclass(node = self, name = name, localname = localname,

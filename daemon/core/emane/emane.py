@@ -1,6 +1,6 @@
 #
 # CORE
-# Copyright (c)2010-2013 the Boeing Company.
+# Copyright (c)2010-2014 the Boeing Company.
 # See the LICENSE file included in this distribution.
 #
 # author: Jeff Ahrenholz <jeffrey.m.ahrenholz@boeing.com>
@@ -15,14 +15,24 @@ from xml.dom.minidom import parseString, Document
 from core.constants import *
 from core.api import coreapi
 from core.misc.ipaddr import MacAddr
+from core.misc.utils import maketuplefromstr
+from core.misc.xmlutils import addtextelementsfromtuples, addparamlisttoparent
 from core.conf import ConfigurableManager, Configurable
 from core.mobility import WirelessModel
 from core.emane.nodes import EmaneNode
+# EMANE 0.7.4/0.8.1
 try:
     import emaneeventservice
     import emaneeventlocation
 except Exception, e:
     pass
+# EMANE 0.9.1+
+try:
+    from emanesh.events import EventService
+    from emanesh.events import LocationEvent
+except Exception, e:
+    pass
+
 
 class Emane(ConfigurableManager):
     ''' EMANE controller object. Lives in a Session instance and is used for
@@ -33,6 +43,9 @@ class Emane(ConfigurableManager):
     _type = coreapi.CORE_TLV_REG_EMULSRV
     _hwaddr_prefix = "02:02"
     (SUCCESS, NOT_NEEDED, NOT_READY) = (0, 1, 2)
+    EVENTCFGVAR = 'LIBEMANEEVENTSERVICECONFIG'
+    # possible self.version values
+    (EMANE074, EMANE081, EMANE091) = (7, 8, 9)
     
     def __init__(self, session):
         ConfigurableManager.__init__(self, session)
@@ -47,29 +60,69 @@ class Emane(ConfigurableManager):
                                                        8100)
         self.transformport = self.session.getcfgitemint('emane_transform_port',
                                                         8200)
+        self.doeventloop = False
+        self.eventmonthread = None
+        # detect between EMANE versions 0.7.4, 0.8.1, and 0.9.1+
+        # to be removed as support for older EMANEs is deprecated
+        self.version = self.EMANE081
+        try:
+            tmp = emaneeventlocation.EventLocation(1)
+            # check if yaw parameter is supported by Location Events
+            # if so, we have EMANE 0.8.1; if not, we have EMANE 0.7.4/earlier
+            tmp.set(0, 1, 2, 2, 2, 3)
+        except TypeError:
+            self.version = self.EMANE074
+        except Exception:
+            # e.g. no Python bindings installed
+            pass
+        if 'EventService' in globals():
+            self.version = self.EMANE091
         # model for global EMANE configuration options
         self.emane_config = EmaneGlobalModel(session, None, self.verbose)
         session.broker.handlers += (self.handledistributed, )
         self.loadmodels()
-        # this allows the event service Python bindings to be absent
+        self.initeventservice()
+
+    def initeventservice(self, filename=None):
+        ''' (Re-)initialize the EMANE Event service. The multicast group and/or
+        port may be configured, and can be changed via XML config file and an
+        environment variable pointing to that file.
+        '''
+        if hasattr(self, 'service'):
+            del self.service
+        self.service = None
+        # EMANE 0.9.1+ does not require event service XML config
+        if self.version == self.EMANE091:
+            values = self.getconfig(None, "emane",
+                                    self.emane_config.getdefaultvalues())[1]
+            group, port = self.emane_config.valueof('eventservicegroup',
+                                                        values).split(':')
+            dev = self.emane_config.valueof('eventservicedevice', values)
+            otachannel = None
+            ota_enable = self.emane_config.valueof('otamanagerchannelenable',
+                                                   values)
+            if self.emane_config.offontobool(ota_enable):
+                ogroup, oport = self.emane_config.valueof('otamanagergroup',
+                                                          values).split(':')
+                odev = self.emane_config.valueof('otamanagerdevice', values)
+                otachannel = (ogroup, int(oport), odev)
+            self.service = EventService(eventchannel=(group, int(port), dev),
+                                        otachannel=otachannel)
+            return True
+        if filename is not None:
+            tmp = os.getenv(self.EVENTCFGVAR)
+            os.environ.update( {self.EVENTCFGVAR: filename} )
+        rc = True
         try:
             self.service = emaneeventservice.EventService()
         except:
             self.service = None
-        self.doeventloop = False
-        self.eventmonthread = None
-        # EMANE 0.7.4 support -- to be removed when 0.7.4 support is deprecated
-        self.emane074 = False
-        try:
-            tmp = emaneeventlocation.EventLocation(1)
-            # check if yaw parameter is supported by Location Events
-            # if so, we have EMANE 0.8.1+; if not, we have EMANE 0.7.4/earlier
-            tmp.set(0, 1, 2, 2, 2, 3)
-        except TypeError:
-            self.emane074 = True
-        except Exception:
-            pass
-        
+            rc = False
+        if filename is not None:
+            os.environ.pop(self.EVENTCFGVAR)
+            if tmp is not None:
+                os.environ.update( {self.EVENTCFGVAR: tmp} )
+        return rc
 
     def loadmodels(self):
         ''' dynamically load EMANE models that were specified in the config file
@@ -310,6 +363,7 @@ class Emane(ConfigurableManager):
         self.buildplatformxml()
         self.buildnemxml()
         self.buildtransportxml()
+        self.buildeventservicexml()
 
     def xmldoc(self, doctype):
         ''' Returns an XML xml.minidom.Document with a DOCTYPE tag set to the
@@ -406,8 +460,9 @@ class Emane(ConfigurableManager):
         doc = self.xmldoc("platform")
         plat = doc.getElementsByTagName("platform").pop()
         platformid = self.emane_config.valueof("platform_id_start",  values)
-        plat.setAttribute("name", "Platform %s" % platformid)
-        plat.setAttribute("id", platformid)
+        if self.version != self.EMANE091:
+            plat.setAttribute("name", "Platform %s" % platformid)
+            plat.setAttribute("id", platformid)
 
         names = list(self.emane_config.getnames())
         platform_names = names[:len(self.emane_config._confmatrix_platform)]
@@ -468,6 +523,44 @@ class Emane(ConfigurableManager):
                               cwd=self.session.sessiondir)
         except Exception, e:
             self.info("error running emanegentransportxml: %s" % e)
+    
+    def buildeventservicexml(self):
+        ''' Build the libemaneeventservice.xml file if event service options
+            were changed in the global config.
+        '''
+        defaults = self.emane_config.getdefaultvalues()
+        values = self.getconfig(None, "emane",
+                                self.emane_config.getdefaultvalues())[1]
+        need_xml = False
+        keys = ('eventservicegroup', 'eventservicedevice')
+        for k in keys:
+            a = self.emane_config.valueof(k, defaults)
+            b = self.emane_config.valueof(k, values) 
+            if a != b:
+                need_xml = True
+
+        if not need_xml:
+            # reset to using default config
+            self.initeventservice()
+            return
+
+        try:
+            group, port = self.emane_config.valueof('eventservicegroup',
+                                                        values).split(':')
+        except ValueError:
+            self.warn("invalid eventservicegroup in EMANE config")
+            return
+        dev = self.emane_config.valueof('eventservicedevice', values)
+
+        doc = self.xmldoc("emaneeventmsgsvc")
+        es = doc.getElementsByTagName("emaneeventmsgsvc").pop()
+        kvs = ( ('group', group), ('port', port), ('device', dev),
+                ('mcloop', '1'),  ('ttl', '32') )
+        addtextelementsfromtuples(doc, es, kvs)
+        filename = 'libemaneeventservice.xml'
+        self.xmlwrite(doc, filename)
+        pathname = os.path.join(self.session.sessiondir, filename)
+        self.initeventservice(filename=pathname)
 
     def startdaemons(self):
         ''' Start the appropriate EMANE daemons. The transport daemon will
@@ -598,9 +691,10 @@ class Emane(ConfigurableManager):
         if self.service is not None:
             self.service.breakloop()
             # reset the service, otherwise nextEvent won't work
-            del self.service
-            self.service = emaneeventservice.EventService()
+            self.initeventservice()
         if self.eventmonthread is not None:
+            if self.version == self.EMANE091:
+                self.eventmonthread._Thread__stop()
             self.eventmonthread.join()
             self.eventmonthread = None
 
@@ -609,68 +703,98 @@ class Emane(ConfigurableManager):
         '''
         if self.service is None:
             return
-        self.info("subscribing to EMANE location events")
-        #self.service.subscribe(emaneeventlocation.EVENT_ID,
-        #                       self.handlelocationevent)
-        #self.service.loop()
-        #self.service.subscribe(emaneeventlocation.EVENT_ID, None)
+        self.info("Subscribing to EMANE location events (not generating them). " \
+                  "(%s) " % threading.currentThread().getName())
         while self.doeventloop is True:
-            (event, platform, nem, component, data) = self.service.nextEvent()
-            if event == emaneeventlocation.EVENT_ID:
-                self.handlelocationevent(event, platform, nem, component, data)
-
-        self.info("unsubscribing from EMANE location events")
-        #self.service.unsubscribe(emaneeventlocation.EVENT_ID)
+            if self.version == self.EMANE091:
+                (uuid, seq, events) = self.service.nextEvent()
+                if not self.doeventloop:
+                    break # this occurs with 0.9.1 event service
+                for event in events:
+                    (nem, eid, data) = event
+                    if eid == LocationEvent.IDENTIFIER:
+                        self.handlelocationevent2(nem, eid, data)
+            else:
+                (event, platform, nem, cmp, data) = self.service.nextEvent()
+                if event == emaneeventlocation.EVENT_ID:
+                    self.handlelocationevent(event, platform, nem, cmp, data)
+        self.info("Unsubscribing from EMANE location events. (%s) " % \
+                  threading.currentThread().getName())
 
     def handlelocationevent(self, event, platform, nem, component, data):
-        ''' Handle an EMANE location event.
+        ''' Handle an EMANE location event (EMANE 0.8.1 and earlier).
         '''
         event = emaneeventlocation.EventLocation(data)
         entries = event.entries()
         for e in entries.values():
             # yaw,pitch,roll,azimuth,elevation,velocity are unhandled
             (nemid, lat, long, alt) = e[:4]
-            # convert nemid to node number
-            (emanenode, netif) = self.nemlookup(nemid)
-            if netif is None:
-                if self.verbose:
-                    self.info("location event for unknown NEM %s" % nemid)
-                continue
-            n = netif.node.objid
-            # convert from lat/long/alt to x,y,z coordinates
-            (x, y, z) = self.session.location.getxyz(lat, long, alt)
-            x = int(x)
-            y = int(y)
-            z = int(z)
-            if self.verbose:
-                self.info("location event NEM %s (%s, %s, %s) -> (%s, %s, %s)" \
-                          % (nemid, lat, long, alt, x, y, z))
-            try:
-                if (x.bit_length() > 16) or (y.bit_length() > 16) or \
-                   (z.bit_length() > 16) or (x < 0) or (y < 0) or (z < 0):
-                    warntxt = "Unable to build node location message since " \
-                              "received lat/long/alt exceeds coordinate " \
-                              "space: NEM %s (%d, %d, %d)" % (nemid, x, y, z)
-                    self.info(warntxt)
-                    self.session.exception(coreapi.CORE_EXCP_LEVEL_ERROR,
-                                           "emane", None, warntxt)
-                    continue
-            except AttributeError:
-                # int.bit_length() not present on Python 2.6
-                pass
+            self.handlelocationeventtoxyz(nemid, lat, long, alt)
 
-            # generate a node message for this location update
-            try:
-                node = self.session.obj(n)
-            except KeyError:
-                self.warn("location event NEM %s has no corresponding node %s" \
-                         % (nemid, n))
+    def handlelocationevent2(self, rxnemid, eid, data):
+        ''' Handle an EMANE location event (EMANE 0.9.1+).
+        '''
+        events = LocationEvent()
+        events.restore(data)
+        for event in events:
+            (txnemid, attrs) = event
+            if 'latitude' not in attrs or 'longitude' not in attrs or \
+              'altitude' not in attrs:
+                self.warn("dropped invalid location event")
                 continue
-            # don't use node.setposition(x,y,z) which generates an event
-            node.position.set(x,y,z)
-            msg = node.tonodemsg(flags=0)
-            self.session.broadcastraw(None, msg)
-            self.session.sdt.updatenodegeo(node.objid, lat, long, alt)
+            # yaw,pitch,roll,azimuth,elevation,velocity are unhandled
+            lat = attrs['latitude']
+            long = attrs['longitude']
+            alt = attrs['altitude']
+            self.handlelocationeventtoxyz(txnemid, lat, long, alt)
+
+    def handlelocationeventtoxyz(self, nemid, lat, long, alt):
+        ''' Convert the (NEM ID, lat, long, alt) from a received location event
+        into a node and x,y,z coordinate values, sending a Node Message.
+        Returns True if successfully parsed and a Node Message was sent.
+        '''
+        # convert nemid to node number
+        (emanenode, netif) = self.nemlookup(nemid)
+        if netif is None:
+            if self.verbose:
+                self.info("location event for unknown NEM %s" % nemid)
+            return False
+        n = netif.node.objid
+        # convert from lat/long/alt to x,y,z coordinates
+        (x, y, z) = self.session.location.getxyz(lat, long, alt)
+        x = int(x)
+        y = int(y)
+        z = int(z)
+        if self.verbose:
+            self.info("location event NEM %s (%s, %s, %s) -> (%s, %s, %s)" \
+                      % (nemid, lat, long, alt, x, y, z))
+        try:
+            if (x.bit_length() > 16) or (y.bit_length() > 16) or \
+               (z.bit_length() > 16) or (x < 0) or (y < 0) or (z < 0):
+                warntxt = "Unable to build node location message since " \
+                          "received lat/long/alt exceeds coordinate " \
+                          "space: NEM %s (%d, %d, %d)" % (nemid, x, y, z)
+                self.info(warntxt)
+                self.session.exception(coreapi.CORE_EXCP_LEVEL_ERROR,
+                                       "emane", None, warntxt)
+                return False
+        except AttributeError:
+            # int.bit_length() not present on Python 2.6
+            pass
+
+        # generate a node message for this location update
+        try:
+            node = self.session.obj(n)
+        except KeyError:
+            self.warn("location event NEM %s has no corresponding node %s" \
+                     % (nemid, n))
+            return False
+        # don't use node.setposition(x,y,z) which generates an event
+        node.position.set(x,y,z)
+        msg = node.tonodemsg(flags=0)
+        self.session.broadcastraw(None, msg)
+        self.session.sdt.updatenodegeo(node.objid, lat, long, alt)
+        return True
 
 
 class EmaneModel(WirelessModel):
@@ -817,6 +941,20 @@ class EmaneModel(WirelessModel):
         warntxt = "EMANE model %s does not support link " % self._name
         warntxt += "configuration, dropping Link Message"
         self.session.warn(warntxt)
+    
+    @staticmethod
+    def valuestrtoparamlist(dom, name, value):
+        ''' Helper to convert a parameter to a paramlist.
+        Returns a an XML paramlist, or None if the value does not expand to
+        multiple values.
+        '''
+        try:
+            values = maketuplefromstr(value, str)
+        except SyntaxError:
+            return None
+        if len(values) < 2:
+            return None
+        return addparamlisttoparent(dom, parent=None, name=name, values=values)
 
 
 class EmaneGlobalModel(EmaneModel):
@@ -826,7 +964,7 @@ class EmaneGlobalModel(EmaneModel):
         EmaneModel.__init__(self, session, objid, verbose)
 
     _name = "emane"
-    _confmatrix_platform = [
+    _confmatrix_platform_base = [
         ("otamanagerchannelenable", coreapi.CONF_DATA_TYPE_BOOL, '0',
          'on,off', 'enable OTA Manager channel'), 
         ("otamanagergroup", coreapi.CONF_DATA_TYPE_STRING, '224.1.2.8:45702',
@@ -839,10 +977,18 @@ class EmaneGlobalModel(EmaneModel):
          '', 'Event Service device'), 
         ("platform_id_start", coreapi.CONF_DATA_TYPE_INT32, '1',
          '', 'starting Platform ID'),
+    ]
+    _confmatrix_platform_081 = [
         ("debugportenable", coreapi.CONF_DATA_TYPE_BOOL, '0',
          'on,off', 'enable debug port'), 
         ("debugport", coreapi.CONF_DATA_TYPE_UINT16, '47000',
-         '', 'debug port number'), 
+         '', 'debug port number'),
+    ] 
+    _confmatrix_platform_091 = [
+        ("controlportendpoint", coreapi.CONF_DATA_TYPE_STRING, '0.0.0.0:47000',
+         '', 'Control port address'),
+        ("antennaprofilemanifesturi", coreapi.CONF_DATA_TYPE_STRING, '',
+         '','antenna profile manifest URI'),
     ]
     _confmatrix_nem = [
         ("transportendpoint", coreapi.CONF_DATA_TYPE_STRING, 'localhost',
@@ -852,6 +998,12 @@ class EmaneGlobalModel(EmaneModel):
         ("nem_id_start", coreapi.CONF_DATA_TYPE_INT32, '1',
          '', 'starting NEM ID'), 
         ]
+    if 'EventService' in globals():
+        _confmatrix_platform = _confmatrix_platform_base + \
+                               _confmatrix_platform_091
+    else:
+        _confmatrix_platform = _confmatrix_platform_base + \
+                               _confmatrix_platform_081
     _confmatrix = _confmatrix_platform + _confmatrix_nem
     _confgroups = "Platform Attributes:1-%d|NEM Parameters:%d-%d" % \
                     (len(_confmatrix_platform), len(_confmatrix_platform) + 1,

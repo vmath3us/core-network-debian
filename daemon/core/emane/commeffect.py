@@ -1,6 +1,6 @@
 #
 # CORE
-# Copyright (c)2010-2013 the Boeing Company.
+# Copyright (c)2010-2014 the Boeing Company.
 # See the LICENSE file included in this distribution.
 #
 # authors: Jeff Ahrenholz <jeffrey.m.ahrenholz@boeing.com>
@@ -12,8 +12,11 @@ commeffect.py: EMANE CommEffect model for CORE
 
 import sys
 import string
+try:
+    from emanesh.events import EventService
+except:
+    pass
 from core.api import coreapi
-
 from core.constants import *
 from emane import EmaneModel
 
@@ -23,13 +26,6 @@ try:
 except Exception, e:
     pass 
 
-def z(x):
-    ''' Helper to use 0 for None values. '''
-    if x is None:
-        return 0
-    else:
-        return x
-
 class EmaneCommEffectModel(EmaneModel):
     def __init__(self, session, objid = None, verbose = False):
         EmaneModel.__init__(self, session, objid, verbose)
@@ -37,20 +33,30 @@ class EmaneCommEffectModel(EmaneModel):
     # model name
     _name = "emane_commeffect"
     # CommEffect parameters
-    _confmatrix_shim = [
-        ("defaultconnectivity", coreapi.CONF_DATA_TYPE_BOOL, '0',
-         'On,Off', 'defaultconnectivity'),
+    _confmatrix_shim_base = [
         ("filterfile", coreapi.CONF_DATA_TYPE_STRING, '',
          '', 'filter file'),
         ("groupid", coreapi.CONF_DATA_TYPE_UINT32, '0',
          '', 'NEM Group ID'),
         ("enablepromiscuousmode", coreapi.CONF_DATA_TYPE_BOOL, '0',
          'On,Off', 'enable promiscuous mode'),
-        ("enabletighttimingmode", coreapi.CONF_DATA_TYPE_BOOL, '0',
-         'On,Off', 'enable tight timing mode'),
         ("receivebufferperiod", coreapi.CONF_DATA_TYPE_FLOAT, '1.0',
          '', 'receivebufferperiod'),
     ]
+    _confmatrix_shim_081 = [
+        ("defaultconnectivity", coreapi.CONF_DATA_TYPE_BOOL, '0',
+         'On,Off', 'defaultconnectivity'),
+        ("enabletighttimingmode", coreapi.CONF_DATA_TYPE_BOOL, '0',
+         'On,Off', 'enable tight timing mode'),
+    ]
+    _confmatrix_shim_091 = [
+        ("defaultconnectivitymode", coreapi.CONF_DATA_TYPE_BOOL, '0',
+         'On,Off', 'defaultconnectivity'),
+    ]
+    if 'EventService' in globals():
+        _confmatrix_shim = _confmatrix_shim_base + _confmatrix_shim_091
+    else:
+        _confmatrix_shim = _confmatrix_shim_base + _confmatrix_shim_081
 
     _confmatrix = _confmatrix_shim
     # value groupings
@@ -97,6 +103,18 @@ class EmaneCommEffectModel(EmaneModel):
         ''' Generate CommEffect events when a Link Message is received having
         link parameters.
         '''
+        if self.session.emane.version == self.session.emane.EMANE091:
+            raise NotImplementedError, \
+                  "CommEffect linkconfig() not implemented for EMANE 0.9.1+"
+        def z(x):
+            ''' Helper to use 0 for None values. '''
+            if type(x) is str:
+                x = float(x)
+            if x is None:
+                return 0
+            else:
+                return int(x)
+        
         service = self.session.emane.service
         if service is None:
             self.session.warn("%s: EMANE event service unavailable" % \
@@ -106,6 +124,7 @@ class EmaneCommEffectModel(EmaneModel):
             self.session.warn("%s: missing NEM information" % self._name)
             return
         # TODO: batch these into multiple events per transmission
+        # TODO: may want to split out seconds portion of delay and jitter
         event = emaneeventcommeffect.EventCommEffect(1)
         index = 0
         e = self.session.obj(self.objid)
