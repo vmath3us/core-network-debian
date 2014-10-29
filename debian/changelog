@@ -1,3 +1,15 @@
+core-network (4.7-2) unstable; urgency=medium
+
+  * Bumped Standards-Version to 3.9.6.
+  * Updated the upstream homepage in some files.
+  * debian/changelog: changed LGPL2.1+ to LGPL-2.1+.
+  * debian/control: added dh-python as build dependency.
+  * debian/rules: added the DEB_CFLAGS_MAINT_APPEND and
+      DEB_LDFLAGS_MAINT_APPEND variables to fix some
+      issues pointed by blhc.
+
+ -- Joao Eriberto Mota Filho <eriberto@debian.org>  Sun, 26 Oct 2014 17:42:03 -0200
+
 core-network (4.7-1) unstable; urgency=medium
 
   * New upstream release (Closes: 753544).

@@ -1,6 +1,6 @@
 Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: core
-Source: http://cs.itd.nrl.navy.mil/work/core
+Source: http://www.nrl.navy.mil/itd/ncs/products/core
 
 Files: *
 Copyright: 2005-2014, the Boeing Company,
@@ -72,7 +72,7 @@ License: BSD-2-clause
 
 Files: scripts/core-daemon-init.d-SUSE
 Copyright: 1995-2005, Kurt Garloff, SUSE / Novell Inc.
-License: LGPL2.1+
+License: LGPL-2.1+
 
 Files: debian/*
 Copyright: 2013-2014 Joao Eriberto Mota Filho <eriberto@debian.org>,
@@ -101,7 +101,7 @@ License: BSD-2-clause
  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-License: LGPL2.1+
+License: LGPL-2.1+
  This library is free software; you can redistribute it and/or modify
  it under the terms of the GNU Library General Public License as
  published by the Free Software Foundation; either version 2.1 of the

@@ -2,9 +2,9 @@ core-network for Debian
 ------------------------
 
 You can get a detailed manual (PDF/HTML) about CORE
-(core-network) at http://cs.itd.nrl.navy.mil/work/core.
+(core-network) at http://www.nrl.navy.mil/itd/ncs/products/core.
 
 CORE can also work with SDT3D. More details at
 https://code.google.com/p/coreemu/wiki/SDT3D.
 
- -- Joao Eriberto Mota Filho <eriberto@debian.org>  Wed, 28 Aug 2013 17:32:30 -0300
+ -- Joao Eriberto Mota Filho <eriberto@debian.org>  Sun, 28 Oct 2014 17:32:30 -0200
