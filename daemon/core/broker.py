@@ -286,7 +286,7 @@ class CoreBroker(ConfigurableManager):
             # this is the master session
             sid = self.session.sessionid
             
-        key = (sid  << 16) | hash(n1num)  | (hash(n2num) << 8)
+        key = (sid  << 16) ^ hash(n1num)  ^ (hash(n2num) << 8)
         return key & 0xFFFFFFFF
     
     def addtunnel(self, remoteip, n1num, n2num, localnum):
@@ -832,7 +832,11 @@ class CoreBroker(ConfigurableManager):
                 if name == "localhost":
                     continue
                 (host, port, sock) = self.servers[name]
-                f.write("%s %s %s\n" % (name, host, port))
+                try:
+                    (lhost, lport) = sock.getsockname()
+                except:
+                    lhost, lport = None, None
+                f.write("%s %s %s %s %s\n" % (name, host, port, lhost, lport))
             f.close()
         except Exception, e:
             self.session.warn("Error writing server list to the file: %s\n%s" \

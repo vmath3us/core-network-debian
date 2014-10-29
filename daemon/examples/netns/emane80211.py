@@ -16,17 +16,6 @@ from core.emane.ieee80211abg import EmaneIeee80211abgModel
 # node list (count from 1)
 n = [None]
 
-def add_to_server(session):
-    ''' Add this session to the server's list if this script is executed from
-    the core-daemon server.
-    '''
-    global server
-    try:
-        server.addsession(session)
-        return True
-    except NameError:
-        return False
-
 def main():
     usagestr = "usage: %prog [-h] [options] [args]"
     parser = optparse.OptionParser(usage = usagestr)
@@ -62,7 +51,8 @@ def main():
     session.location.refscale = 150.0
     session.cfg['emane_models'] = "RfPipe, Ieee80211abg, Bypass, AtdlOmni"
     session.emane.loadmodels()
-    add_to_server(session)
+    if 'server' in globals():
+        server.addsession(session)
 
     # EMANE WLAN
     print "creating EMANE WLAN wlan1"
@@ -87,6 +77,7 @@ def main():
         n.append(tmp)
 
     # this starts EMANE, etc.
+    session.node_count = str(options.numnodes + 1)
     session.instantiate()
 
     # start a shell on node 1
