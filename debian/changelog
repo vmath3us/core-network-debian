@@ -1,24 +1,3 @@
-core-network (4.7-1) unstable; urgency=medium
-
-  * New upstream release (Closes: 753544).
-  * New maintainer email address.
-  * Migrated from python-support to dh_python2.
-  * debian/control:
-      - Changed the Archictecture from 'any' to 'all' in
-        core-network-gui binary.
-      - Updated the Vcs-Browser field.
-  * debian/copyright:
-      - Updated the 'Source' field.
-      - Updated the upstream and packaging copyright years.
-  * debian/core-network-daemon.install:
-      - Added core-manage.1 (core-[cdmx]*).
-      - Added emanemodel2core.py ([efhmns]*).
-  * debian/patches/widget.tcl: added to fix Throughput Widget and plots
-    feature.
-  * debian/watch: added a secondary test line.
-
- -- Joao Eriberto Mota Filho <eriberto@debian.org>  Sat, 09 Aug 2014 22:05:55 -0300
-
 core-network (4.6-5) unstable; urgency=medium
 
   * debian/control: added 'net-tools|freebsd-net-tools' to Build-Depends field.
