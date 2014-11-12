@@ -2,7 +2,7 @@ Source: core-network
 Section: net
 Priority: optional
 Maintainer: Joao Eriberto Mota Filho <eriberto@debian.org>
-Uploaders: Jeffrey M. Ahrenholz <jeffrey.m.ahrenholz@boeing.com>
+Uploaders: Jeffrey M. Ahrenholz <ahrenholz@gmail.com>
 Build-Depends: debhelper (>= 9),
                automake,
                autotools-dev,

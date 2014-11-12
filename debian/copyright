@@ -4,7 +4,7 @@ Source: http://www.nrl.navy.mil/itd/ncs/products/core
 
 Files: *
 Copyright: 2005-2014, the Boeing Company,
-           by Jeffrey M. Ahrenholz <jeffrey.m.ahrenholz@boeing.com>
+           by Jeffrey M. Ahrenholz <ahrenholz@gmail.com>
 License: BSD-2-clause
 
 Files: gui/annotations.tcl gui/topogen.tcl
@@ -76,7 +76,7 @@ License: LGPL-2.1+
 
 Files: debian/*
 Copyright: 2013-2014 Joao Eriberto Mota Filho <eriberto@debian.org>,
-                     Jeffrey M. Ahrenholz <jeffrey.m.ahrenholz@boeing.com>
+                     Jeffrey M. Ahrenholz <ahrenholz@gmail.com>
 License: BSD-2-clause
 
 License: BSD-2-clause

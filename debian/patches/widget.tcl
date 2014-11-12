@@ -1,5 +1,5 @@
 Description: fix Throughput Widget and plots feature.
-Author: Jeffrey M. Ahrenholz <jeffrey.m.ahrenholz@boeing.com>
+Author: Jeffrey M. Ahrenholz <ahrenholz@gmail.com>
 Origin: https://code.google.com/p/coreemu/source/diff?spec=svn569&old=536&r=569&format=unidiff&path=%2Ftrunk%2Fgui%2Fwidget.tcl
 Last-Update: 2014-08-09
 Index: core-network-4.7/gui/widget.tcl
