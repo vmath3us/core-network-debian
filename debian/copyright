@@ -75,9 +75,11 @@ Copyright: 1995-2005, Kurt Garloff, SUSE / Novell Inc.
 License: LGPL-2.1+
 
 Files: debian/*
-Copyright: 2013-2014 Joao Eriberto Mota Filho <eriberto@debian.org>,
-                     Jeffrey M. Ahrenholz <ahrenholz@gmail.com>
+Copyright: 2009-2013 Jeffrey M. Ahrenholz <ahrenholz@gmail.com>
+           2013-2015 Joao Eriberto Mota Filho <eriberto@debian.org>
 License: BSD-2-clause
+Comment: Jeffrey maintained a packaging work outside Debian between
+         2009 and 2013.
 
 License: BSD-2-clause
  Redistribution and use in source and binary forms, with or without

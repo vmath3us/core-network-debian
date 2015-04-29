@@ -5,11 +5,10 @@ export DEB_CFLAGS_MAINT_APPEND  = -fPIE
 export DEB_LDFLAGS_MAINT_APPEND = -Wl,-z,now
 
 %:
-	dh $@  --with autotools-dev,python2 --parallel
+	dh $@ --with autoreconf,python2 --parallel
 
-override_dh_auto_configure:
-	sh bootstrap.sh
-	dh_auto_configure
+override_dh_autoreconf:
+	dh_autoreconf ./bootstrap.sh
 
 override_dh_installinit:
 	dh_installinit -p core-network-daemon -o core-daemon --name=core-daemon
