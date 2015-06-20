@@ -107,7 +107,11 @@ proc checkRJ45s {} {
     global systype node_list g_prefs
 
     if { [lindex $systype 0] == "Linux" } {
-        set extifcs [nexec localnode /sbin/ifconfig -a -s | tail -n +2 | awk "{ print \$1 }" | xargs]
+	if { [file isdirectory /sys/class/net] } {
+	    set extifcs [nexec localnode ls /sys/class/net]
+	} else {
+	    set extifcs [nexec localnode /sbin/ifconfig -a -s | tail -n +2 | awk "{ print \$1 }" | xargs]
+	}
         set extifcs \
            [lreplace $extifcs [lsearch $extifcs lo] [lsearch $extifcs lo]]
     } else {

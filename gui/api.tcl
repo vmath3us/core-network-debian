@@ -431,14 +431,13 @@ proc parseNodeMessage { data len flags } {
 # modify a node
 #
 proc apiNodeModify { node vals_ref } {
-    global c eid zoom
+    global c eid zoom curcanvas
     upvar $vals_ref vals
     if { ![info exists c] } { return } ;# batch mode
+    set draw 0
     if { $vals(icon) != "" } {
 	setCustomImage $node $vals(icon)
-	.c delete withtag "node && $node"
-	.c delete withtag "nodelabel && $node"
-	drawNode .c $node
+	set draw 1
     }
     # move the node and its links
     if {$vals(xpos) != 0 && $vals(ypos) != 0} {
@@ -447,6 +446,7 @@ proc apiNodeModify { node vals_ref } {
     }
     if { $vals(name) != "" } {
 	setNodeName $node $vals(name)
+	set draw 1
     }
     if { $vals(services) != "" } {
 	set services [split $vals(services) |]
@@ -454,6 +454,11 @@ proc apiNodeModify { node vals_ref } {
     }
     # TODO: handle other optional on-screen data
     # lat, long, alt, heading, platform type, platform id
+    if { $draw && [getNodeCanvas $node] == $curcanvas }  {
+	.c delete withtag "node && $node"
+	.c delete withtag "nodelabel && $node"
+	drawNode .c $node
+    }
 }
 
 #
@@ -691,6 +696,9 @@ proc parseLinkMessage { data len flags } {
 		setIfcIPv${j}addr [set node${i}] $ifname \
 			$vals(if${i}ipv${j})/$vals(if${i}ipv${j}mask)
 	    }
+	}
+	if { $vals(if${i}mac) != -1 } {
+	    setIfcMacaddr [set node${i}] $ifname $vals(if${i}mac)
 	}
     }
     # adopt network address for WLAN (WLAN must be node 1)
@@ -1068,6 +1076,13 @@ proc parseRegMessage { data len flags channel } {
     # reg message with session number indicates the sid of a session that
     # was just started from XML or Python script (via reg exec=scriptfile.py)
     if { $session != "" } {
+	# The channel passed to here is soon after discarded for
+	# sessions that are started from XML or Python scripts. This causes
+	# an exception in the GUI when responding back to daemon if the 
+	# response is sent after the channel has been destroyed. Setting 
+	# the channel to -1 basically disables the GUI response to the daemon, 
+	# but it turns out the daemon does not need the response anyway.
+	set channel -1
 	# assume session string only contains one session number
 	connectShutdownSession connect $channel $session $fnhint
 	return
@@ -1465,8 +1480,13 @@ proc parseEventMessage { data len flags channel } {
     if { $eventtype == 4 } { ;# entered the runtime state
 	if { $g_traffic_start_opt == 1 } { startTrafficScripts }
 	if { $execMode == "batch" } {
-	    global g_current_session
-	    puts "disconnecting.  Session id is $g_current_session"
+	    global g_current_session g_abort_session
+	    if {$g_abort_session} {
+		puts "Current session ($g_current_session) aborted. Disconnecting."
+		shutdownSession
+	    } else {
+		puts "Session running. Session id is $g_current_session. Disconnecting."
+	    }
 	    exit.real
 	}
     } elseif { $eventtype == 6 } { ;# shutdown state

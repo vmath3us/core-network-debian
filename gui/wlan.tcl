@@ -132,15 +132,20 @@ proc updateRangeCircles { wlan range } {
 }
 
 proc linkSelectedNodes { wlan nodes } {
+    set canvas [getNodeCanvas $wlan]
+
     foreach node $nodes {
 	if { $wlan == $node } { continue } ;# don't link to self
 	if { [ifcByPeer $wlan $node] != "" } { continue } ;# already linked
+	if { [getNodeCanvas $node] != $canvas } { continue }; # on a different canvas
         newGUILink $wlan $node
     }
 }
 
 proc linkAllNodes { wlan } {
     global node_list
+
+    set canvas [getNodeCanvas $wlan]
 
     # vars related to the status bar graph
     set num 0
@@ -157,6 +162,7 @@ proc linkAllNodes { wlan } {
 	     [expr { ($num % $update_interval) }] == 0 } { update }
         if { [nodeType $node] != "router" } { continue }
 	if { [ifcByPeer $wlan $node] != "" } { continue } ;# already linked
+	if { [getNodeCanvas $node] != $canvas } { continue }; # on a different canvas
         newGUILink $wlan $node
     }
     .c config -cursor left_ptr; update

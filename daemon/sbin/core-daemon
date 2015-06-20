@@ -35,7 +35,7 @@ from core.constants import *
 from core.api import coreapi
 from core.coreobj import PyCoreNet
 from core.misc.utils import hexdump, daemonize, cmdresult, mutedetach
-from core.misc.xmlutils import opensessionxml, savesessionxml
+from core.misc.xmlsession import opensessionxml, savesessionxml
 
 DEFAULT_MAXFD = 1024
 
@@ -203,7 +203,7 @@ class CoreRequestHandler(SocketServer.BaseRequestHandler):
         '''
         try:
             msghdr = self.request.recv(coreapi.CoreMessage.hdrsiz)
-            if self.debug:
+            if self.debug and len(msghdr) > 0:
                 self.info("received message header:\n%s" % hexdump(msghdr))
         except Exception, e:
             raise IOError, "error receiving header (%s)" % e
@@ -935,10 +935,16 @@ class CoreRequestHandler(SocketServer.BaseRequestHandler):
                 filename = sys.argv[0]
                 if os.path.splitext(filename)[1].lower() == '.xml':
                     session = server.getsession(useexisting=False)
-                    opensessionxml(session, filename, start=True)
+                    try:
+                        opensessionxml(session, filename, start=True)
+                    except:
+                        session.shutdown()
+                        server.delsession(session)
+                        raise
                 else:
                     t = threading.Thread(target = execfile,
-                                         args=(filename, {'server': server}))
+                                         args=(filename, {'__file__': filename,
+                                                          'server': server}))
                     t.daemon = True
                     t.start()
                     time.sleep(0.25) # allow time for session creation
@@ -972,6 +978,12 @@ class CoreRequestHandler(SocketServer.BaseRequestHandler):
             except Exception, e:
                 self.warn("error executing '%s': %s" % \
                           (ex, traceback.format_exc()))
+                tlvdata = coreapi.CoreExceptionTlv.pack( \
+                    coreapi.CORE_TLV_EXCP_LEVEL, 2)
+                tlvdata += coreapi.CoreExceptionTlv.pack( \
+                    coreapi.CORE_TLV_EXCP_TEXT, str(e))
+                msg = coreapi.CoreExceptionMessage.pack(0, tlvdata)
+                replies.append(msg)
             return replies
             
         gui = msg.gettlv(coreapi.CORE_TLV_REG_GUI)
@@ -1115,14 +1127,22 @@ class CoreRequestHandler(SocketServer.BaseRequestHandler):
                            coreapi.CORE_EVENT_RESTART, \
                            coreapi.CORE_EVENT_PAUSE, \
                            coreapi.CORE_EVENT_RECONFIGURE):
+            handled = False
             name = msg.gettlv(coreapi.CORE_TLV_EVENT_NAME)
-            # TODO: register system for event message handlers, like confobjs
-            if name[:8] == "service:":
-                self.session.services.handleevent(msg)
-            elif name[:9] == "mobility:":
-                self.session.mobility.handleevent(msg)
-            else:
-                self.warn("Unhandled event message: event type %d" % eventtype)
+            if name:
+                # TODO: register system for event message handlers,
+                # like confobjs
+                if name.startswith("service:"):
+                    self.session.services.handleevent(msg)
+                    handled = True
+                elif name.startswith("mobility:"):
+                    self.session.mobility.handleevent(msg)
+                    handled = True
+                else:
+                    pass
+            if not handled:
+                self.warn("Unhandled event message: event type %s (%s)" % \
+                              (eventtype, coreapi.state_name(eventtype)))
         elif eventtype == coreapi.CORE_EVENT_FILE_OPEN:
             self.session.delobjs()
             self.session.delhooks()
@@ -1132,7 +1152,7 @@ class CoreRequestHandler(SocketServer.BaseRequestHandler):
             return self.session.sendobjs()
         elif eventtype == coreapi.CORE_EVENT_FILE_SAVE:
             filename = msg.tlvdata[coreapi.CORE_TLV_EVENT_NAME]
-            savesessionxml(self.session, filename)
+            savesessionxml(self.session, filename, self.session.cfg['xmlfilever'])
         elif eventtype == coreapi.CORE_EVENT_SCHEDULED:
             etime = msg.gettlv(coreapi.CORE_TLV_EVENT_TIME)
             node = msg.gettlv(coreapi.CORE_TLV_EVENT_NODE)
@@ -1224,6 +1244,8 @@ class CoreRequestHandler(SocketServer.BaseRequestHandler):
                     # shut down the specified session(s)
                     self.info("request to terminate session %s" % sid)
                     session.setstate(state=coreapi.CORE_EVENT_DATACOLLECT_STATE,
+                                    info=True, sendevent=True)
+                    session.setstate(state=coreapi.CORE_EVENT_SHUTDOWN_STATE,
                                     info=True, sendevent=True)
                     session.shutdown()
                 else:
@@ -1471,7 +1493,7 @@ class CoreServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
                 nc = session.node_count
                 if nc is None:
                     nc = ""
-                nclist.append(nc)
+                nclist.append(str(nc))
                 datelist.append(time.ctime(session._time))
                 thumb = session.thumbnail
                 if thumb is None:
@@ -1619,6 +1641,7 @@ def getMergedConfig(filename):
                  'listenaddr' : 'localhost',
                  'pidfile' : '%s/run/core-daemon.pid' % CORE_STATE_DIR,
                  'logfile' : '%s/log/core-daemon.log' % CORE_STATE_DIR,
+                 'xmlfilever' : '1.0',
                  'numthreads' : '1',
                  'verbose' : 'False',
                  'daemonize' : 'False',

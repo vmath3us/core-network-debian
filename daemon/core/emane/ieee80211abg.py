@@ -52,12 +52,16 @@ class EmaneIeee80211abgModel(EmaneModel):
         ("pcrcurveuri", coreapi.CONF_DATA_TYPE_STRING,
          '%s/ieee80211pcr.xml' % xml_path,
          '', 'SINR/PCR curve file'),
-        ("flowcontrolenable", coreapi.CONF_DATA_TYPE_BOOL, '0', 
+        ("flowcontrolenable", coreapi.CONF_DATA_TYPE_BOOL, '0',
          'On,Off', 'enable traffic flow control'),
-        ("flowcontroltokens", coreapi.CONF_DATA_TYPE_UINT16, '10', 
+        ("flowcontroltokens", coreapi.CONF_DATA_TYPE_UINT16, '10',
          '', 'number of flow control tokens'),
     ]
-    _confmatrix_mac_081 = [
+    # mac parameters introduced in EMANE 0.8.1 
+    # Note: The entry format for category queue parameters (queuesize, aifs, etc) were changed in
+    # EMANE 9.x, but are being preserved for the time being due to space constraints in the
+    # CORE GUI. A conversion function (get9xmacparamequivalent) has been defined to support this. 
+    _confmatrix_mac_extended = [
         ("wmmenable", coreapi.CONF_DATA_TYPE_BOOL, '0',
          'On,Off', 'WiFi Multimedia (WMM)'),
         ("queuesize", coreapi.CONF_DATA_TYPE_STRING, '0:255 1:255 2:255 3:255',
@@ -73,13 +77,10 @@ class EmaneIeee80211abgModel(EmaneModel):
         ("retrylimit", coreapi.CONF_DATA_TYPE_STRING, '0:3 1:3 2:3 3:3',
          '', 'retry limit (0-4:numretries)'),
     ]
-    _confmatrix_mac_091 = []
-    if 'EventService' in globals():
-        _confmatrix_mac = _confmatrix_mac_base + _confmatrix_mac_091
-    else:
-        _confmatrix_mac = _confmatrix_mac_base + _confmatrix_mac_081
+    _confmatrix_mac = _confmatrix_mac_base + _confmatrix_mac_extended
+
     # PHY parameters from Universal PHY
-    _confmatrix_phy = EmaneUniversalModel._confmatrix 
+    _confmatrix_phy = EmaneUniversalModel._confmatrix
 
     _confmatrix = _confmatrix_mac + _confmatrix_phy
     # value groupings
@@ -93,20 +94,14 @@ class EmaneIeee80211abgModel(EmaneModel):
             nXXemane_ieee80211abgnem.xml, nXXemane_ieee80211abgemac.xml,
             nXXemane_ieee80211abgphy.xml are used.
         '''
-        # use the network-wide config values or interface(NEM)-specific values?
-        if ifc is None:
-            values = e.getconfig(self.objid, self._name,
-                                 self.getdefaultvalues())[1]
-        else:
-            nodenum = ifc.node.objid
-            values = e.getconfig(nodenum, self._name, None)[1]
-            if values is None:
-                # do not build specific files for this NEM when config is same
-                # as the network
-                return
+        values = e.getifcconfig(self.objid, self._name,
+                                self.getdefaultvalues(), ifc)
+        if values is None:
+            return
         nemdoc = e.xmldoc("nem")
         nem = nemdoc.getElementsByTagName("nem").pop()
         nem.setAttribute("name", "ieee80211abg NEM")
+        e.appendtransporttonem(nemdoc, nem, self.objid, ifc)
         mactag = nemdoc.createElement("mac")
         mactag.setAttribute("definition", self.macxmlname(ifc))
         nem.appendChild(mactag)
@@ -125,10 +120,44 @@ class EmaneIeee80211abgModel(EmaneModel):
         phynames = names[len(self._confmatrix_mac):]
 
         # append all MAC options to macdoc
-        map( lambda n: mac.appendChild(e.xmlparam(macdoc, n, \
+        if 'EventService' in globals():
+            for macname in macnames:
+                mac9xnvpairlist = self.get9xmacparamequivalent(macname, values)
+                for nvpair in mac9xnvpairlist:
+                    mac.appendChild(e.xmlparam(macdoc, nvpair[0], nvpair[1]))
+        else:
+            map( lambda n: mac.appendChild(e.xmlparam(macdoc, n, \
                                        self.valueof(n, values))), macnames)
+            
         e.xmlwrite(macdoc, self.macxmlname(ifc))
 
         phydoc = EmaneUniversalModel.getphydoc(e, self, values, phynames)
         e.xmlwrite(phydoc, self.phyxmlname(ifc))
 
+    #
+    # TEMP HACK: Account for parameter convention change in EMANE 9.x
+    # This allows CORE to preserve the entry layout for the mac 'category' parameters
+    # and work with EMANE 9.x onwards.
+    #
+    def  get9xmacparamequivalent(self, macname, values):
+        ''' Generate a list of 80211abg mac parameters in 0.9.x layout for a given mac parameter
+        in 8.x layout.For mac category parameters, the list returned will contain the four 
+        equivalent 9.x parameter and value pairs. Otherwise, the list returned will only
+        contain a single name and value pair.
+        '''
+        nvpairlist = []
+        macparmval = self.valueof(macname, values)
+        if macname in ["queuesize","aifs","cwmin","cwmax","txop","retrylimit"]:
+            for catval in macparmval.split():
+                idx_and_val = catval.split(":")
+                idx = int(idx_and_val[0])
+                val = idx_and_val[1]
+                # aifs and tx are in microseconds. Convert to seconds.
+                if macname in ["aifs","txop"]:
+                    val = "%f" % (float(val)*(1e-6))
+                name9x = "%s%d" % (macname, idx)
+                nvpairlist.append([name9x, val])
+        else:
+            nvpairlist.append([macname, macparmval])
+        return nvpairlist
+        

@@ -1,3 +1,17 @@
+core-network (4.8-1) unstable; urgency=medium
+
+  * New upstream release.
+  * debian/copyright:
+      - Updated the upstream copyright years.
+      - Updated the LGPL-2.1 license text.
+  * debian/patches/:
+      - fix-bashisms: added to fix some bashisms. Thanks to
+        Raphael Geissert <atomo64@gmail.com> (Closes: #772214)
+      - widget.tcl: removed. The upstream fixed the source code.
+  * debian/README.Debian: added new useful information.
+
+ -- Joao Eriberto Mota Filho <eriberto@debian.org>  Sat, 20 Jun 2015 19:12:46 -0300
+
 core-network (4.7-4) unstable; urgency=medium
 
   * Upload to unstable. Welcome Jessie Stable!
@@ -30,7 +44,7 @@ core-network (4.7-1) unstable; urgency=medium
   * New maintainer email address.
   * Migrated from python-support to dh_python2.
   * debian/control:
-      - Changed the Archictecture from 'any' to 'all' in
+      - Changed the Architecture from 'any' to 'all' in
         core-network-gui binary.
       - Updated the Vcs-Browser field.
   * debian/copyright:
