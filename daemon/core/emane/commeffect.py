@@ -24,7 +24,7 @@ try:
     import emaneeventservice
     import emaneeventcommeffect
 except Exception, e:
-    pass 
+    pass
 
 class EmaneCommEffectModel(EmaneModel):
     def __init__(self, session, objid = None, verbose = False):
@@ -88,13 +88,14 @@ class EmaneCommEffectModel(EmaneModel):
         # empty filterfile is not allowed
         ff = self.valueof("filterfile", values)
         if ff.strip() != '':
-            shim.appendChild(e.xmlparam(shimdoc, "filterfile", ff))        
+            shim.appendChild(e.xmlparam(shimdoc, "filterfile", ff))
         e.xmlwrite(shimdoc, self.shimxmlname(ifc))
 
         nemdoc = e.xmldoc("nem")
         nem = nemdoc.getElementsByTagName("nem").pop()
         nem.setAttribute("name", "commeffect NEM")
         nem.setAttribute("type", "unstructured")
+        e.appendtransporttonem(nemdoc, nem, self.objid, ifc)
         nem.appendChild(e.xmlshimdefinition(nemdoc, self.shimxmlname(ifc)))
         e.xmlwrite(nemdoc, self.nemxmlname(ifc))
 
@@ -103,7 +104,7 @@ class EmaneCommEffectModel(EmaneModel):
         ''' Generate CommEffect events when a Link Message is received having
         link parameters.
         '''
-        if self.session.emane.version == self.session.emane.EMANE091:
+        if self.session.emane.version >= self.session.emane.EMANE091:
             raise NotImplementedError, \
                   "CommEffect linkconfig() not implemented for EMANE 0.9.1+"
         def z(x):
@@ -114,7 +115,7 @@ class EmaneCommEffectModel(EmaneModel):
                 return 0
             else:
                 return int(x)
-        
+
         service = self.session.emane.service
         if service is None:
             self.session.warn("%s: EMANE event service unavailable" % \

@@ -1,6 +1,6 @@
 #!/usr/bin/python -i
 
-# Copyright (c)2010-2013 the Boeing Company.
+# Copyright (c)2010-2014 the Boeing Company.
 # See the LICENSE file included in this distribution.
 
 # Example CORE Python script that attaches N nodes to an EMANE 802.11abg
@@ -45,11 +45,12 @@ def main():
     # IP subnet
     prefix = ipaddr.IPv4Prefix("10.83.0.0/16")
     # session with some EMANE initialization
-    session = pycore.Session(persistent=True)
+    cfg = {'verbose': 'false'}
+    session = pycore.Session(cfg = cfg, persistent = True)
     session.master = True
     session.location.setrefgeo(47.57917,-122.13232,2.00000)
     session.location.refscale = 150.0
-    session.cfg['emane_models'] = "RfPipe, Ieee80211abg, Bypass, AtdlOmni"
+    session.cfg['emane_models'] = "RfPipe, Ieee80211abg, Bypass"
     session.emane.loadmodels()
     if 'server' in globals():
         server.addsession(session)
@@ -61,7 +62,11 @@ def main():
     names = EmaneIeee80211abgModel.getnames()
     values = list(EmaneIeee80211abgModel.getdefaultvalues())
     # TODO: change any of the EMANE 802.11 parameter values here
-    values[ names.index('pathlossmode') ] = 'pathloss'
+    try:
+        values[ names.index('pathlossmode') ] = '2ray'
+    except ValueError:
+        values[ names.index('propagationmodel') ] = '2ray'
+
     session.emane.setconfig(wlan.objid, EmaneIeee80211abgModel._name, values)
     services_str = "zebra|OSPFv3MDR|vtysh|IPForward"
 
