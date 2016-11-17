@@ -1,3 +1,2 @@
-version=3
-http://downloads.pf.itd.nrl.navy.mil/core/source/core-(\d\S+)\.tar\.(?:bz2|gz|xz)
-http://132.250.5.202/core/source/core-(\d\S+)\.tar\.(?:bz2|gz|xz)
+version=4
+https://github.com/coreemu/core/releases .*/archive/release-(\d\S+)\.tar\.(?:bz2|gz|xz)

@@ -1,3 +1,27 @@
+core-network (4.8-2) unstable; urgency=medium
+
+  * Bumped DH level to 10.
+  * debian/control:
+      - Added  lsb-base to Depends field in core-network-daemon.
+      - Bumped Standards-Version to 3.9.8.
+      - Changed from python to ${python:Depends} in Depends field in
+        core-network-daemon.
+      - Updated the Vcs-* fields to use https instead of http and git.
+  * debian/copyright:
+      - Added an extra download source.
+      - Added the Upstream-Contact field.
+      - Grouped all blocks with BSD-2-Clause license.
+      - Updated the packaging copyright years.
+  * debian/core-network-gui.menu: removed in compliance with CTTE #741573.
+  * debian/gbp.conf: no longer used by me... Removed.
+  * debian/patches/fix-bashisms: renamed to 10_fix-bashisms.patch.
+  * debian/rules:removed the --parallel option from dh.
+  * debian/watch:
+      - Bumped to version 4.
+      - Updated the source address. (Closes: #795220)
+
+ -- Joao Eriberto Mota Filho <eriberto@debian.org>  Thu, 17 Nov 2016 21:10:20 -0200
+
 core-network (4.8-1) unstable; urgency=medium
 
   * New upstream release.
