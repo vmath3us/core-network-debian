@@ -1,8 +1,7 @@
 Source: core-network
 Section: net
 Priority: optional
-Maintainer: Joao Eriberto Mota Filho <eriberto@debian.org>
-Uploaders: Jeffrey M. Ahrenholz <ahrenholz@gmail.com>
+Maintainer: Debian QA Group <packages@qa.debian.org>
 Build-Depends: bridge-utils,
                debhelper (>= 10),
                dh-autoreconf,
@@ -47,6 +46,8 @@ Description: intuitive network emulator that interacts with real nets (metapacka
    4. Highly customizable
    5. The emulated machines can use several resources and programs
       installed on the real machine, as tcpdump.
+ .
+ Outside Debian, CORE is also known as coreemu.
  .
  This is a metapackage depending on the packages for the CORE daemon and GUI.
 
