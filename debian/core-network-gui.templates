@@ -1,0 +1,11 @@
+Template: core-network-gui/security_holes
+Type: note
+Default: ok
+_Description: WARNING: CORE HAS SECURITY HOLES!
+ CORE-NETWORK has a grave security hole that allow provileged access as
+ root in the hosting machine. In other words, an ordinary user will have
+ the power of root over the operational system, via CORE, without passwords
+ or other authentication methods. Be careful when installing CORE.
+ .
+ See the /usr/share/doc/core-network/README.Debian file for more details.
+ On Debian, refer to bugs #799756 and #860516.

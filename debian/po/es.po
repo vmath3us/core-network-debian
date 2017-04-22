@@ -1,0 +1,53 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the core-network package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: core-network\n"
+"Report-Msgid-Bugs-To: core-network@packages.debian.org\n"
+"POT-Creation-Date: 2017-04-22 17:25-0300\n"
+"PO-Revision-Date: 2017-04-22 17:37-0300\n"
+"Last-Translator: Joao Eriberto Mota Filho <eriberto@eriberto.pro.br>\n"
+"Language-Team: \n"
+"Language: pt_BR\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Poedit 1.8.11\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+#. Type: note
+#. Description
+#: ../templates:1001
+msgid "WARNING: CORE HAS SECURITY HOLES!"
+msgstr "ADVERTENCIA: ¡CORE TIENE AGUJEROS DE SEGURIDAD!"
+
+#. Type: note
+#. Description
+#: ../templates:1001
+msgid ""
+"CORE-NETWORK has a grave security hole that allow provileged access as root "
+"in the hosting machine. In other words, an ordinary user will have the power "
+"of root over the operational system, via CORE, without passwords or other "
+"authentication methods. Be careful when installing CORE."
+msgstr ""
+"CORE-NETWORK tiene un grave agujero de seguridad que permite un acceso "
+"privilegiado como root en la máquina anfitriona. En otras palabras, un "
+"usuario común tendrá el poder de root sobre el sistema operativo, a través "
+"de CORE, sin contraseñas u otros métodos de autenticación. Tenga cuidado al "
+"instalar CORE."
+
+#. Type: note
+#. Description
+#: ../templates:1001
+msgid ""
+"See the /usr/share/doc/core-network/README.Debian file for more details. On "
+"Debian, refer to bugs #799756 and #860516."
+msgstr ""
+"Consulte el archivo /usr/share/doc/core-network/README.Debian para obtener "
+"más detalles. En Debian, refiérase a los errores #799756 y #860516."
+
+#~ msgid "See the README.Debian file for more details."
+#~ msgstr "Veja o arquivo README.Debian para mais detalhes."
