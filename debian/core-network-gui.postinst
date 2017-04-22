@@ -1,0 +1,12 @@
+#!/bin/sh
+
+set -e
+
+. /usr/share/debconf/confmodule
+
+#DEBHELPER#
+
+# without this, debconf hangs after end of postinst.
+db_stop
+
+exit 0
