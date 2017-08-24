@@ -1,0 +1,130 @@
+Source: core-network
+Section: net
+Priority: optional
+Maintainer: Joao Eriberto Mota Filho <eriberto@debian.org>
+Build-Depends: bridge-utils,
+               debhelper (>= 10),
+               dh-autoreconf,
+               dh-python,
+               ebtables,
+               gcc (>= 4.8.1-2~),
+               help2man,
+               imagemagick,
+               iproute2 | iproute,
+               libev-dev,
+               net-tools | freebsd-net-tools,
+               pkg-config,
+               po-debconf,
+               procps,
+               python-dev
+Standards-Version: 3.9.8
+Homepage: http://www.nrl.navy.mil/itd/ncs/products/core
+Vcs-Git: https://anonscm.debian.org/git/collab-maint/core-network.git
+Vcs-Browser: https://anonscm.debian.org/git/collab-maint/core-network.git
+
+Package: core-network
+Architecture: all
+Depends: core-network-daemon, core-network-gui, ${misc:Depends}
+Suggests: tcpdump
+Description: intuitive network emulator that interacts with real nets (metapackage)
+ The Common Open Research Emulator (CORE) is a tool for emulating
+ networks in one or more machines. You can connect these emulated
+ networks to live networks.
+ .
+ CORE consists of a GUI for drawing topologies of lightweight virtual
+ machines, and Python modules for scripting network emulation.
+ .
+ Key features:
+ .
+   1. Network lab in a box
+        - Efficient and scalable
+        - Easy-to-use GUI canvas
+        - Centralized configuration and control
+   2. Runs applications and protocols without modifying them
+   3. Real-time connection to live networks
+        - Hardware-in-the-loop
+        - Distributed with multiple COREs
+   4. Highly customizable
+   5. The emulated machines can use several resources and programs
+      installed on the real machine, as tcpdump.
+ .
+ Outside Debian, CORE is also known as coreemu.
+ .
+ This is a metapackage depending on the packages for the CORE daemon and GUI.
+ .
+ IMPORTANT: currently, CORE is outside of Debian. See #799756 and
+ #860516 for more details. However, the .deb packages will keep
+ provided from a personal homepage. Please, see http://eriberto.pro.br/core/
+
+Package: core-network-daemon
+Architecture: any
+Depends: bridge-utils,
+         ebtables,
+         iproute2 | iproute,
+         lsb-base (>= 3.0-6),
+         ${misc:Depends},
+         ${python:Depends},
+         ${shlibs:Depends}
+Recommends: quagga
+Suggests: core-network-gui
+Description: intuitive network emulator that interacts with real nets (daemon)
+ The Common Open Research Emulator (CORE) is a tool for emulating
+ networks in one or more machines. You can connect these emulated
+ networks to live networks.
+ .
+ CORE consists of a GUI for drawing topologies of lightweight virtual
+ machines, and Python modules for scripting network emulation.
+ .
+ Key features:
+ .
+   1. Network lab in a box:
+        - Efficient and scalable.
+        - Easy-to-use GUI canvas.
+        - Centralized configuration and control.
+   2. Runs applications and protocols without modifying them.
+   3. Real-time connection to live networks:
+        - Hardware-in-the-loop.
+        - Distributed with multiple COREs.
+   4. Highly customizable.
+   5. The emulated machines can use several resources and programs
+      installed on the real machine, as tcpdump.
+ .
+ This package provides the daemon that makes the emulated
+ network available for one or several environments.
+ .
+ IMPORTANT: currently, CORE is outside of Debian. See #799756 and
+ #860516 for more details. However, the .deb packages will keep
+ provided from a personal homepage. Please, see http://eriberto.pro.br/core/
+
+Package: core-network-gui
+Architecture: all
+Depends: libtk-img, tk8.5, ${misc:Depends}
+Recommends: tcpdump
+Suggests: core-network-daemon, tshark, wireshark
+Description: intuitive network emulator that interacts with real nets (GUI)
+ The Common Open Research Emulator (CORE) is a tool for emulating
+ networks in one or more machines. You can connect these emulated
+ networks to live networks.
+ .
+ CORE consists of a GUI for drawing topologies of lightweight virtual
+ machines, and Python modules for scripting network emulation.
+ .
+ Key features:
+ .
+   1. Network lab in a box
+        - Efficient and scalable
+        - Easy-to-use GUI canvas
+        - Centralized configuration and control
+   2. Runs applications and protocols without modifying them
+   3. Real-time connection to live networks
+        - Hardware-in-the-loop
+        - Distributed with multiple COREs
+   4. Highly customizable
+   5. The emulated machines can use several resources and programs
+      installed on the real machine, as tcpdump.
+ .
+ This package provides the CORE GUI.
+ .
+ IMPORTANT: currently, CORE is outside of Debian. See #799756 and
+ #860516 for more details. However, the .deb packages will keep
+ provided from a personal homepage. Please, see http://eriberto.pro.br/core/
