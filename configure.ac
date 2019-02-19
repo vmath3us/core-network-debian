@@ -12,10 +12,10 @@
 #
 # this defines the CORE version number, must be static for AC_INIT
 #
-AC_INIT(core, 4.8, core-dev@pf.itd.nrl.navy.mil)
+AC_INIT(core, m4_esyscmd_s([./revision.sh 4.8]), core-dev@pf.itd.nrl.navy.mil)
 VERSION=$PACKAGE_VERSION
 CORE_VERSION=$PACKAGE_VERSION
-CORE_VERSION_DATE=20150605
+CORE_VERSION_DATE=m4_esyscmd_s([./revision.sh -d])
 COREDPY_VERSION=$PACKAGE_VERSION
 
 #
@@ -25,7 +25,7 @@ AC_CONFIG_SRCDIR([daemon/src/version.h.in])
 AC_CONFIG_AUX_DIR(config)
 AC_CONFIG_MACRO_DIR(config)
 AC_CONFIG_HEADERS([config.h])
-AM_INIT_AUTOMAKE
+AM_INIT_AUTOMAKE([tar-ustar])
 
 AC_SUBST(CORE_VERSION)
 AC_SUBST(CORE_VERSION_DATE)
@@ -198,15 +198,6 @@ if test "x$enable_daemon" = "xyes" ; then
   AC_CHECK_FUNCS([atexit dup2 gettimeofday memset socket strerror uname])
 fi
 
-# simple architecture detection
-if test `uname -m` = "x86_64"; then
-    ARCH=amd64
-else
-    ARCH=i386
-fi
-AC_MSG_RESULT([using architecture $ARCH])
-AC_SUBST(ARCH)
-
 # Host-specific detection
 want_linux_netns=no
 want_bsd=no
@@ -326,6 +317,7 @@ AC_CONFIG_FILES([Makefile
 		gui/Makefile
 		gui/icons/Makefile
 		scripts/Makefile
+		scripts/core-daemon.service
 		scripts/perf/Makefile
 		scripts/xen/Makefile
 		doc/Makefile
@@ -341,6 +333,7 @@ AC_CONFIG_FILES([Makefile
 		daemon/doc/Makefile
 		daemon/doc/conf.py
 		packaging/deb/core-daemon.install
+		packaging/deb/core-daemon.prerm
 		packaging/deb/core-gui.install
 		packaging/rpm/core.spec],)
 AC_OUTPUT

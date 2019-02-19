@@ -1,2 +1,0 @@
-version=4
-https://github.com/coreemu/core/releases .*/archive/release-(\d\S+)\.tar\.(?:bz2|gz|xz)

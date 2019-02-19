@@ -15,13 +15,29 @@
 #include <Python.h>
 #include <structmember.h>
 #include <pthread.h>
-#include <fcntl.h>
 #undef NDEBUG		      /* XXX force enabling asserts for now */
 #include <assert.h>
 
 #include "vnode_client.h"
 
 /* #define DEBUG */
+
+typedef struct vcmdentry {
+  PyObject_HEAD
+
+  vnode_client_t *_client;
+} VCmd;
+
+typedef struct {
+  PyObject_HEAD
+
+  int32_t _cmdid;
+  int _complete;
+  int _status;
+  pthread_mutex_t _mutex;
+  pthread_cond_t _cv;
+  VCmd *_vcmd;
+} VCmdWait;
 
 int verbose;
 
@@ -164,6 +180,8 @@ static int init_evloop(void)
     WARN("pipe() failed");
     return -1;
   }
+  set_cloexec(asyncpipe[0]);
+  set_cloexec(asyncpipe[1]);
   set_nonblock(asyncpipe[0]);
   ev_io_init(&asyncwatcher, vcmd_asyncreq_cb, asyncpipe[0], EV_READ);
   ev_io_start(loop, &asyncwatcher);
@@ -179,15 +197,6 @@ static int init_evloop(void)
   return 0;
 }
 
-typedef struct {
-  PyObject_HEAD
-
-  int32_t _cmdid;
-  int _complete;
-  int _status;
-  pthread_mutex_t _mutex;
-  pthread_cond_t _cv;
-} VCmdWait;
 
 static PyObject *VCmdWait_new(PyTypeObject *type,
 			      PyObject *args, PyObject *kwds)
@@ -207,6 +216,7 @@ static PyObject *VCmdWait_new(PyTypeObject *type,
   self->_status = -1;
   pthread_mutex_init(&self->_mutex, NULL);
   pthread_cond_init(&self->_cv, NULL);
+  self->_vcmd = NULL;
 
 #ifdef DEBUG
   WARNX("%p: exit", self);
@@ -223,6 +233,8 @@ static void VCmdWait_dealloc(VCmdWait *self)
 
   pthread_mutex_destroy(&self->_mutex);
   pthread_cond_destroy(&self->_cv);
+  if (self->_vcmd != NULL)
+    Py_DECREF(self->_vcmd);
 
   self->ob_type->tp_free((PyObject *)self);
 
@@ -232,6 +244,12 @@ static void VCmdWait_dealloc(VCmdWait *self)
 static PyObject *VCmdWait_wait(VCmdWait *self)
 {
   int status;
+
+  if (self->_vcmd == NULL)
+  {
+    PyErr_SetString(PyExc_ValueError, "unstarted command");
+    return NULL;
+  }
 
   pthread_mutex_lock(&self->_mutex);
 
@@ -260,6 +278,12 @@ Py_END_ALLOW_THREADS
 static PyObject *VCmdWait_complete(VCmdWait *self,
 				   PyObject *args, PyObject *kwds)
 {
+  if (self->_vcmd == NULL)
+  {
+    PyErr_SetString(PyExc_ValueError, "unstarted command");
+    return NULL;
+  }
+
   if (self->_complete)
     Py_RETURN_TRUE;
   else
@@ -269,13 +293,51 @@ static PyObject *VCmdWait_complete(VCmdWait *self,
 static PyObject *VCmdWait_status(VCmdWait *self,
 				 PyObject *args, PyObject *kwds)
 {
+  if (self->_vcmd == NULL)
+  {
+    PyErr_SetString(PyExc_ValueError, "unstarted command");
+    return NULL;
+  }
+
   if (self->_complete)
     return Py_BuildValue("i", self->_status);
   else
     Py_RETURN_NONE;
 }
 
+static PyObject *VCmdWait_kill(VCmdWait *self,
+			       PyObject *args, PyObject *kwds)
+{
+  int sig;
+
+  if (!PyArg_ParseTuple(args, "i", &sig))
+    return NULL;
+
+  if (self->_vcmd == NULL)
+  {
+    PyErr_SetString(PyExc_ValueError, "unstarted command");
+    return NULL;
+  }
+
+  if (self->_complete)
+  {
+    PyErr_SetString(PyExc_ValueError, "command already complete");
+    return NULL;
+  }
+
+  if (vnode_send_cmdsignal(self->_vcmd->_client->serverfd, self->_cmdid, sig))
+  {
+    PyErr_SetFromErrno(PyExc_OSError);
+    return NULL;
+  }
+
+  Py_RETURN_NONE;
+}
+
 static PyMemberDef VCmdWait_members[] = {
+  {"vcmd", T_OBJECT, offsetof(VCmdWait, _vcmd), READONLY,
+   "VCmd instance that created this object"},
+
   {NULL, 0, 0, 0, NULL},
 };
 
@@ -291,6 +353,11 @@ static PyMethodDef VCmdWait_methods[] = {
   {"status", (PyCFunction)VCmdWait_status, METH_NOARGS,
    "status() -> int\n\n"
    "Return exit status if command has completed; return None otherwise."},
+
+  {"kill", (PyCFunction)VCmdWait_kill, METH_VARARGS,
+   "kill(signum) -> None\n\n"
+   "Send a signal to command.\n\n"
+   "signum: the signal to send"},
 
   {NULL, NULL, 0, NULL},
 };
@@ -308,13 +375,6 @@ static PyTypeObject vcmd_VCmdWaitType = {
 };
 
 
-typedef struct vcmdentry {
-  PyObject_HEAD
-
-  vnode_client_t *_client;
-  int _client_connected;
-} VCmd;
-
 static PyObject *VCmd_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
   VCmd *self;
@@ -324,7 +384,6 @@ static PyObject *VCmd_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
     return NULL;
 
   self->_client = NULL;
-  self->_client_connected = 0;
 
   return (PyObject *)self;
 }
@@ -347,7 +406,11 @@ static void vcmd_ioerrorcb(vnode_client_t *client)
   assert(self);
   assert(self->_client == client);
 
-  self->_client_connected = 0;
+  if (self->_client)
+  {
+    vnode_delclient(self->_client);
+    self->_client = NULL;
+  }
 
   if (pythreads)
     PyGILState_Release(gstate);
@@ -372,14 +435,18 @@ static void async_newclientreq(struct ev_loop *loop, void *data)
 }
 
 typedef struct {
-  vnode_client_t *client;
+  VCmd *vcmd;
 } vcmd_delclientreq_t;
 
 static void async_delclientreq(struct ev_loop *loop, void *data)
 {
   vcmd_delclientreq_t *delclreq = data;
 
-  vnode_delclient(delclreq->client);
+  if (delclreq->vcmd->_client)
+  {
+    vnode_delclient(delclreq->vcmd->_client);
+    delclreq->vcmd->_client = NULL;
+  }
 
   return;
 }
@@ -408,8 +475,6 @@ static int VCmd_init(VCmd *self, PyObject *args, PyObject *kwds)
     return -1;
   }
 
- self->_client_connected = 1;
-
   return 0;
 }
 
@@ -419,13 +484,11 @@ static void VCmd_dealloc(VCmd *self)
   WARNX("%p: enter", self);
 #endif
 
-  self->_client_connected = 0;
   if (self->_client)
   {
-    vcmd_delclientreq_t delclreq = {.client = self->_client};
+    vcmd_delclientreq_t delclreq = {.vcmd = self};
 
     call_asyncfunc(async_delclientreq, &delclreq);
-    self->_client = NULL;
   }
 
   self->ob_type->tp_free((PyObject *)self);
@@ -435,7 +498,7 @@ static void VCmd_dealloc(VCmd *self)
 
 static PyObject *VCmd_connected(VCmd *self, PyObject *args, PyObject *kwds)
 {
-  if (self->_client_connected)
+  if (self->_client != NULL)
     Py_RETURN_TRUE;
   else
     Py_RETURN_FALSE;
@@ -531,7 +594,7 @@ static PyObject *_VCmd_cmd(VCmd *self, PyObject *args, PyObject *kwds,
   PyObject *pyptyfile = NULL;
   PyObject *ret;
 
-  if (!self->_client_connected)
+  if (self->_client == NULL)
   {
     PyErr_SetString(PyExc_ValueError, "not connected");
     return NULL;
@@ -710,6 +773,9 @@ static PyObject *_VCmd_cmd(VCmd *self, PyObject *args, PyObject *kwds,
    * there's an error below since cmddonecb should still get called
    */
 
+  Py_INCREF(self);
+  cmdwait->_vcmd = self;
+
   switch (iotype)
   {
   case VCMD_IO_NONE:
@@ -779,6 +845,18 @@ static PyObject *VCmd_kill(VCmd *self, PyObject *args, PyObject *kwds)
   Py_RETURN_NONE;
 }
 
+static PyObject *VCmd_close(VCmd *self, PyObject *args, PyObject *kwds)
+{
+  if (self->_client)
+  {
+    vcmd_delclientreq_t delclreq = {.vcmd = self};
+
+    call_asyncfunc(async_delclientreq, &delclreq);
+  }
+
+  Py_RETURN_NONE;
+}
+
 static PyMemberDef VCmd_members[] = {
   {NULL, 0, 0, 0, NULL},
 };
@@ -816,6 +894,9 @@ static PyMethodDef VCmd_methods[] = {
    "Send signal to a command.\n\n"
    "cmdwait: the VCmdWait object from an earlier command request\n"
    "signum: the signal to send"},
+
+  {"close", (PyCFunction)VCmd_close, METH_NOARGS,
+   "close() -> None"},
 
   {NULL, NULL, 0, NULL},
 };

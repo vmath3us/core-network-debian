@@ -90,14 +90,10 @@ class PhysicalNode(PyCoreNode):
         '''
         os.chdir(self.nodedir)
         # in Python 2.7 we can use subprocess.check_output() here
-        tmp = subprocess.Popen(args, stdin = subprocess.PIPE,
+        tmp = subprocess.Popen(args, stdin = open(os.devnull, 'r'),
                                stdout = subprocess.PIPE,
-                               stderr = subprocess.PIPE)
-        result = tmp.stdout.read()
-        result += tmp.stderr.read()
-        tmp.stdin.close()
-        tmp.stdout.close()
-        tmp.stderr.close()
+                               stderr = subprocess.STDOUT)
+        result, err = tmp.communicate() # err will always be None
         status = tmp.wait()
         return (status, result)
         
@@ -216,7 +212,8 @@ class PhysicalNode(PyCoreNode):
     def privatedir(self, path):
         if path[0] != "/":
             raise ValueError, "path not fully qualified: " + path
-        hostpath = os.path.join(self.nodedir, path[1:].replace("/", "."))
+        hostpath = os.path.join(self.nodedir,
+                                os.path.normpath(path).strip('/').replace('/', '.'))
         try:
             os.mkdir(hostpath)
         except OSError:

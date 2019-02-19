@@ -12,6 +12,11 @@ procedures.
 '''
 
 import subprocess, os, ast
+import fcntl
+
+def closeonexec(fd):
+    fdflags = fcntl.fcntl(fd, fcntl.F_GETFD)
+    fcntl.fcntl(fd, fcntl.F_SETFD, fdflags | fcntl.FD_CLOEXEC)
 
 def checkexec(execlist):
     for bin in execlist:
@@ -105,14 +110,10 @@ def cmdresult(args):
         exit status and result string. stderr output
         is folded into the stdout result string.
     '''
-    cmdid = subprocess.Popen(args, stdin = subprocess.PIPE,
+    cmdid = subprocess.Popen(args, stdin = open(os.devnull, 'r'),
                              stdout = subprocess.PIPE,
-                             stderr = subprocess.PIPE)
-    cmdid.stdin.close()
-    result = cmdid.stdout.read()
-    result += cmdid.stderr.read()
-    cmdid.stdout.close()
-    cmdid.stderr.close()
+                             stderr = subprocess.STDOUT)
+    result, err = cmdid.communicate() # err will always be None
     status = cmdid.wait()
     return (status, result)
 
@@ -269,6 +270,6 @@ def checkforkernelmodule(name):
     '''
     with open('/proc/modules', 'r') as f:
         for line in f:
-            if line[:len(name)] == name:
-                return line
+            if line.startswith(name + ' '):
+                return line.rstrip()
     return None

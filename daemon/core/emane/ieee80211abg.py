@@ -17,7 +17,7 @@ except:
     pass
 from core.api import coreapi
 from core.constants import *
-from emane import EmaneModel
+from emane import Emane, EmaneModel
 from universal import EmaneUniversalModel
 
 class EmaneIeee80211abgModel(EmaneModel):
@@ -29,7 +29,7 @@ class EmaneIeee80211abgModel(EmaneModel):
     _80211rates = '1 1 Mbps,2 2 Mbps,3 5.5 Mbps,4 11 Mbps,5 6 Mbps,' + \
          '6 9 Mbps,7 12 Mbps,8 18 Mbps,9 24 Mbps,10 36 Mbps,11 48 Mbps,' + \
          '12 54 Mbps'
-    if 'EventService' in globals():
+    if Emane.version >= Emane.EMANE091:
         xml_path = '/usr/share/emane/xml/models/mac/ieee80211abg'
     else:
         xml_path = "/usr/share/emane/models/ieee80211abg/xml"
@@ -77,7 +77,17 @@ class EmaneIeee80211abgModel(EmaneModel):
         ("retrylimit", coreapi.CONF_DATA_TYPE_STRING, '0:3 1:3 2:3 3:3',
          '', 'retry limit (0-4:numretries)'),
     ]
+    _confmatrix_mac_091 = [
+        ('radiometricenable', coreapi.CONF_DATA_TYPE_BOOL, '0',
+         'On,Off', 'report radio metrics via R2RI'),
+        ('radiometricreportinterval', coreapi.CONF_DATA_TYPE_FLOAT, '1.0',
+         '', 'R2RI radio metric report interval (sec)'),
+        ('neighbormetricdeletetime', coreapi.CONF_DATA_TYPE_FLOAT, '60.0',
+         '', 'R2RI neighbor table inactivity time (sec)'),
+    ]
     _confmatrix_mac = _confmatrix_mac_base + _confmatrix_mac_extended
+    if Emane.version >= Emane.EMANE091:
+        _confmatrix_mac += _confmatrix_mac_091
 
     # PHY parameters from Universal PHY
     _confmatrix_phy = EmaneUniversalModel._confmatrix
@@ -120,7 +130,7 @@ class EmaneIeee80211abgModel(EmaneModel):
         phynames = names[len(self._confmatrix_mac):]
 
         # append all MAC options to macdoc
-        if 'EventService' in globals():
+        if Emane.version >= Emane.EMANE091:
             for macname in macnames:
                 mac9xnvpairlist = self.get9xmacparamequivalent(macname, values)
                 for nvpair in mac9xnvpairlist:

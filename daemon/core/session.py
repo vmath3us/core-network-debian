@@ -13,6 +13,8 @@ that manages a CORE session.
 
 import os, sys, tempfile, shutil, shlex, atexit, gc, pwd
 import threading, time, random
+import traceback
+import subprocess
 
 from core.api import coreapi
 if os.uname()[0] == "Linux":
@@ -117,10 +119,6 @@ class Session(object):
             print >> sys.stderr, "WARNING: automatically shutting down " \
                 "non-persistent session %s" % s.sessionid
             s.shutdown()
-
-    def __del__(self):
-        # note: there is no guarantee this will ever run
-        self.shutdown()
 
     def shutdown(self):
         ''' Shut down all emulation objects and remove the session directory.
@@ -292,8 +290,16 @@ class Session(object):
                 self.warn("Error writing hook '%s': %s" % (filename, e))
             self.info("Running hook %s for state %s" % (filename, state))
             try:
-                check_call(["/bin/sh", filename], cwd=self.sessiondir,
-                           env=self.getenviron())
+                stdout = open(os.path.join(self.sessiondir,
+                                           filename + '.log'), 'w')
+                stderr = subprocess.STDOUT
+            except:
+                stdout = None
+                stderr = None
+            try:
+                check_call(["/bin/sh", filename], stdin=open(os.devnull, 'r'),
+                           stdout=stdout, stderr=stderr, close_fds=True,
+                           cwd=self.sessiondir, env=self.getenviron())
             except Exception, e:
                 self.warn("Error running hook '%s' for state %s: %s" %
                           (filename, state, e))
@@ -312,7 +318,7 @@ class Session(object):
         if state not in self._hooks:
             self._hooks[state] = [hook,]
         else:
-            self._hooks[state] += hook
+            self._hooks[state].append(hook)
         # immediately run a hook if it is in the current state
         # (this allows hooks in the definition and configuration states)
         if self.getstate() == state:
@@ -331,8 +337,9 @@ class Session(object):
                 hook(state)
             except Exception, e:
                 self.warn("ERROR: exception occured when running %s state "
-                          "hook: %s: %s" % (coreapi.state_name(state),
-                                            hook, e))
+                          "hook: %s: %s\n%s" % (coreapi.state_name(state),
+                                                hook, e,
+                                                traceback.format_exc()))
 
     def add_state_hook(self, state, hook):
         try:
@@ -354,7 +361,7 @@ class Session(object):
     def runtime_state_hook(self, state):
         if state == coreapi.CORE_EVENT_RUNTIME_STATE:
             self.emane.poststartup()
-            xmlfilever = self.cfg['xmlfilever']
+            xmlfilever = self.getcfgitem('xmlfilever')
             if xmlfilever in ('1.0',):
                 xmlfilename = os.path.join(self.sessiondir,
                                            'session-deployed.xml')
@@ -631,9 +638,16 @@ class Session(object):
         # allow time for processes to start
         time.sleep(0.125)
         self.validatenodes()
+        self.broker.local_instantiation_complete()
+        if self.isconnected():
+            tlvdata = ''
+            tlvdata += coreapi.CoreEventTlv.pack(coreapi.CORE_TLV_EVENT_TYPE,
+                                                 coreapi.CORE_EVENT_INSTANTIATION_COMPLETE)
+            msg = coreapi.CoreEventMessage.pack(0, tlvdata)
+            self.broadcastraw(None, msg)
         # assume either all nodes have booted already, or there are some
         # nodes on slave servers that will be booted and those servers will
-        # send a node status response message
+        # send a status response message
         self.checkruntime()
 
     def getnodecount(self):
@@ -666,22 +680,9 @@ class Session(object):
             return
         if self.getstate() == coreapi.CORE_EVENT_RUNTIME_STATE:
             return
-        session_node_count = int(self.node_count)
-        nc = self.getnodecount()
-        # count booted nodes not emulated on this server
-        # TODO: let slave server determine RUNTIME and wait for Event Message
-        # broker.getbootocunt() counts all CoreNodes from status reponse
-        #  messages, plus any remote WLANs; remote EMANE, hub, switch, etc.
-        #  are already counted in self._objs
-        nc += self.broker.getbootcount()
-        self.info("Checking for runtime with %d of %d session nodes" % \
-                    (nc, session_node_count))
-        if nc < session_node_count:
-            return # do not have information on all nodes yet
-        # information on all nodes has been received and they have been started
-        # enter the runtime state
-        # TODO: more sophisticated checks to verify that all nodes and networks
-        #       are running
+        # check if all servers have completed instantiation
+        if not self.broker.instantiation_complete():
+            return
         state = coreapi.CORE_EVENT_RUNTIME_STATE
         self.evq.run()
         self.setstate(state, info=True, sendevent=True)
@@ -759,7 +760,7 @@ class Session(object):
                                                | coreapi.CORE_API_LOC_FLAG,
                                                  tlvdata)
             try:
-                handler.request.sendall(reply)
+                handler.sendall(reply)
             except Exception, e:
                 self.warn("sendall() for node: %d error: %s" % (nodenum, e))
             del handler.nodestatusreq[nodenum]
@@ -883,7 +884,7 @@ class Session(object):
                     prefix = prefixes[0] 
             else:
                 # slave servers have their name and localhost in the serverlist
-                servers = self.broker.getserverlist()
+                servers = self.broker.getservernames()
                 servers.remove('localhost')
                 prefix = None
                 for server_prefix in prefixes:
@@ -920,7 +921,7 @@ class Session(object):
 
         # tunnels between controlnets will be built with Broker.addnettunnels()
         self.broker.addnet(oid)
-        for server in self.broker.getserverlist():
+        for server in self.broker.getservers():
             self.broker.addnodemap(server, oid)
         
         return ctrlnet
@@ -1125,7 +1126,7 @@ class SessionConfig(ConfigurableManager, Configurable):
 
     def __init__(self, session):
         ConfigurableManager.__init__(self, session)
-        session.broker.handlers += (self.handledistributed, )
+        session.broker.handlers.add(self.handledistributed)
         self.reset()
 
     def reset(self):
@@ -1183,7 +1184,7 @@ class SessionConfig(ConfigurableManager, Configurable):
         controlnets = value.split()
         if len(controlnets) < 2:
             return # multiple controlnet prefixes do not exist
-        servers = self.session.broker.getserverlist()
+        servers = self.session.broker.getservernames()
         if len(servers) < 2:
             return # not distributed
         servers.remove("localhost")
@@ -1242,6 +1243,13 @@ class SessionMetaData(ConfigurableManager):
 
     def additem(self, key, value):
         self.configs[key] = value
+
+    def getitem(self, key):
+        try:
+            return self.configs[key]
+        except KeyError:
+            pass
+        return None
 
     def items(self):
         return self.configs.iteritems()

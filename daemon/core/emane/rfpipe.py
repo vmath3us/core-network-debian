@@ -18,7 +18,7 @@ except:
     pass
 from core.api import coreapi
 from core.constants import *
-from emane import EmaneModel
+from emane import Emane, EmaneModel
 from universal import EmaneUniversalModel
 
 class EmaneRfPipeModel(EmaneModel):
@@ -27,7 +27,7 @@ class EmaneRfPipeModel(EmaneModel):
 
     # model name
     _name = "emane_rfpipe"
-    if 'EventService' in globals():
+    if Emane.version >= Emane.EMANE091:
         xml_path = '/usr/share/emane/xml/models/mac/rfpipe'
     else:
         xml_path = "/usr/share/emane/models/rfpipe/xml"
@@ -63,8 +63,14 @@ class EmaneRfPipeModel(EmaneModel):
          '', 'transmission jitter (sec)'),
         ("delay", coreapi.CONF_DATA_TYPE_FLOAT, '0.0',
          '', 'transmission delay (sec)'),
+        ('radiometricenable', coreapi.CONF_DATA_TYPE_BOOL, '0',
+         'On,Off', 'report radio metrics via R2RI'),
+        ('radiometricreportinterval', coreapi.CONF_DATA_TYPE_FLOAT, '1.0',
+         '', 'R2RI radio metric report interval (sec)'),
+        ('neighbormetricdeletetime', coreapi.CONF_DATA_TYPE_FLOAT, '60.0',
+         '', 'R2RI neighbor table inactivity time (sec)'),
     ]
-    if 'EventService' in globals():
+    if Emane.version >= Emane.EMANE091:
         _confmatrix_mac = _confmatrix_mac_base + _confmatrix_mac_091
     else:
         _confmatrix_mac = _confmatrix_mac_base + _confmatrix_mac_081
@@ -118,8 +124,8 @@ class EmaneRfPipeModel(EmaneModel):
             values = list(values)
             values[i] = self.emane074_fixup(values[i], 1000)
         # append MAC options to macdoc
-        map( lambda n: mac.appendChild(e.xmlparam(macdoc, n, \
-                                       self.valueof(n, values))), macnames)
+        map(lambda n: mac.appendChild(e.xmlparam(macdoc, n, \
+                                      self.valueof(n, values))), macnames)
         e.xmlwrite(macdoc, self.macxmlname(ifc))
 
         phydoc = EmaneUniversalModel.getphydoc(e, self, values, phynames)

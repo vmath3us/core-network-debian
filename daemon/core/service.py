@@ -15,6 +15,7 @@ services.
 '''
 
 import sys, os, shlex
+import imp
 
 from itertools import repeat
 from core.api import coreapi
@@ -47,9 +48,8 @@ class CoreServices(ConfigurableManager):
     _name = "services"
     _type = coreapi.CORE_TLV_REG_UTILITY
 
-    _invalid_custom_names = ('core', 'addons', 'api', 'bsd', 'emane', 'misc',
-                             'netns', 'phys', 'services', 'xen')
-    
+    service_path = set()
+
     def __init__(self, session):
         ConfigurableManager.__init__(self, session)
         # dict of default services tuples, key is node type
@@ -63,24 +63,36 @@ class CoreServices(ConfigurableManager):
             for path in paths.split(','):
                 path = path.strip()
                 self.importcustom(path)
-        
+        self.isStartupService = startup.Startup.isStartupService
+
+    @classmethod
+    def add_service_path(cls, path):
+        cls.service_path.add(path)
+
     def importcustom(self, path):
         ''' Import services from a myservices directory.
         '''
-        if not path or len(path) == 0:
+        if not path or path in self.service_path:
             return
         if not os.path.isdir(path):
             self.session.warn("invalid custom service directory specified" \
                               ": %s" % path)
             return
+        self.add_service_path(path)
         try:
             parentdir, childdir = os.path.split(path)
-            if childdir in self._invalid_custom_names:
-                raise ValueError, "use a unique custom services dir name, " \
-                        "not '%s'" % childdir
-            if not parentdir in sys.path:
-                sys.path.append(parentdir)
-            exec("from %s import *" % childdir)
+            f, pathname, description = imp.find_module(childdir, [parentdir])
+            name = 'core.services.custom.' + childdir
+            if name in sys.modules:
+                i = 1
+                while name + str(i) in sys.modules:
+                    i += 1
+                name += str(i)
+            m = imp.load_module(name, f, pathname, description)
+            if hasattr(m, '__all__'):
+                for x in m.__all__:
+                    f, pathname, description = imp.find_module(x, [path])
+                    imp.load_module(name + '.' + x, f, pathname, description)
         except Exception, e:
             self.session.warn("error importing custom services from " \
                 "%s:\n%s" % (path, e))
@@ -217,24 +229,25 @@ class CoreServices(ConfigurableManager):
         '''
         services = sorted(node.services,
                           key=lambda service: service._startindex)
+        useStartupService = any(map(self.isStartupService, services))
         for s in services:
             if len(str(s._starttime)) > 0:
                 try:
                     t = float(s._starttime)
                     if t > 0.0:
                         fn = self.bootnodeservice                    
-                        self.session.evq.add_event(t, fn, node, s, services)
+                        self.session.evq.add_event(t, fn, node, s, services, False)
                         continue
                 except ValueError:
                     pass
-            self.bootnodeservice(node, s, services)
+            self.bootnodeservice(node, s, services, useStartupService)
     
-    def bootnodeservice(self, node, s, services):
+    def bootnodeservice(self, node, s, services, useStartupService):
         ''' Start a service on a node. Create private dirs, generate config
             files, and execute startup commands.
         '''
         if s._custom:
-            self.bootnodecustomservice(node, s, services)
+            self.bootnodecustomservice(node, s, services, useStartupService)
             return
         if node.verbose:
             node.info("starting service %s (%s)" % (s._name, s._startindex))
@@ -247,6 +260,8 @@ class CoreServices(ConfigurableManager):
         for filename in s.getconfigfilenames(node.objid, services): 
             cfg = s.generateconfig(node,  filename, services)
             node.nodefile(filename,  cfg)
+        if useStartupService and not self.isStartupService(s):
+            return
         for cmd in s.getstartup(node, services):
             try:
                 # NOTE: this wait=False can be problematic!
@@ -254,7 +269,7 @@ class CoreServices(ConfigurableManager):
             except Exception, e:
                 node.warn("error starting command %s: %s" % (cmd, e))
 
-    def bootnodecustomservice(self, node, s, services):
+    def bootnodecustomservice(self, node, s, services, useStartupService):
         ''' Start a custom service on a node. Create private dirs, use supplied
             config files, and execute  supplied startup commands.
         '''
@@ -284,6 +299,9 @@ class CoreServices(ConfigurableManager):
                 continue
             node.nodefile(filename,  cfg)
             
+        if useStartupService and not self.isStartupService(s):
+            return
+
         for cmd in s._startup:
             try:
                 # NOTE: this wait=False can be problematic!

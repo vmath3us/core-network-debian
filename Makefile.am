@@ -24,15 +24,16 @@ ACLOCAL_AMFLAGS 	= -I config
 
 # extra files to include with distribution tarball
 EXTRA_DIST		= bootstrap.sh LICENSE README-Xen Changelog kernel \
-			  python-prefix.py \
+			  python-prefix.py revision.sh \
+			  .version .version.date \
 			  packaging/bsd \
 			  packaging/deb/compat \
 			  packaging/deb/copyright \
 			  packaging/deb/changelog \
-			  packaging/deb/core.postrm \
 			  packaging/deb/rules \
 			  packaging/deb/control \
 			  packaging/deb/core-daemon.install.in \
+			  packaging/deb/core-daemon.prerm.in \
 			  packaging/deb/core-gui.install.in \
 			  packaging/rpm/core.spec.in \
 			  packaging/rpm/specfiles.sh
@@ -41,6 +42,10 @@ DISTCLEAN_TARGETS	= aclocal.m4 config.h.in
 
 # extra cruft to remove
 DISTCLEANFILES	= aclocal.m4 config.h.in configure Makefile.in config/compile
+
+MAINTAINERCLEANFILES =				\
+	.version				\
+	.version.date
 
 # don't include svn dirs in source tarball
 dist-hook:
@@ -70,3 +75,9 @@ core-restart:
 	daemon/sbin/core-cleanup
 	rm -f /var/log/core-daemon.log
 	/etc/init.d/core-daemon start
+
+.version: Makefile
+	echo $(CORE_VERSION) > $@
+
+.version.date: Makefile
+	echo $(CORE_VERSION_DATE) > $@

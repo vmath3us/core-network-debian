@@ -64,7 +64,7 @@ def main():
     slaveport = options.slave.split(':')
     slave = slaveport[0]
     if len(slaveport) > 1:
-        port = slaveport[1]
+        port = int(slaveport[1])
     else:
         port = coreapi.CORE_API_PORT
     print "connecting to slave at %s:%d" % (slave, port)
@@ -98,6 +98,7 @@ def main():
                                     name = "n%d" % i, start=False)
         tmp.setposition(x=150*i,y=150)
         tmp.server = slave
+        n.append(tmp)
         session.broker.handlerawmsg(tmp.tonodemsg(flags=flags))
 
     # create remote links via API

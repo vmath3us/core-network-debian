@@ -90,9 +90,6 @@ class SimpleLxcNode(PyCoreNode):
         while self._mounts:
             source, target = self._mounts.pop(-1)
             self.umount(target)
-        #print "XXX del vnodeclient:", self.vnodeclient
-        # XXX XXX XXX this causes a serious crash
-        #del self.vnodeclient
         for netif in self.netifs():
             netif.shutdown()
         try:
@@ -105,9 +102,7 @@ class SimpleLxcNode(PyCoreNode):
         except OSError:
             pass
         self._netif.clear()
-        #del self.session
-        # print "XXX del vnodeclient:", self.vnodeclient
-        del self.vnodeclient
+        self.vnodeclient.close()
         self.up = False
 
     def cmd(self, args, wait = True):
@@ -230,8 +225,12 @@ class SimpleLxcNode(PyCoreNode):
                     "error setting MAC address %s" % str(addr))
     def addaddr(self, ifindex, addr):
         if self.up:
-            self.cmd([IP_BIN, "addr", "add", str(addr),
-                  "dev", self.ifname(ifindex)])
+            if ":" in str(addr): # check if addr is ipv6
+                self.cmd([IP_BIN, "addr", "add", str(addr),
+                    "dev", self.ifname(ifindex)])
+            else:
+                self.cmd([IP_BIN, "addr", "add", str(addr), "broadcast", "+",
+                    "dev", self.ifname(ifindex)])
         self._netif[ifindex].addaddr(addr)
 
     def deladdr(self, ifindex, addr):
@@ -366,7 +365,8 @@ class LxcNode(SimpleLxcNode):
     def privatedir(self, path):
         if path[0] != "/":
             raise ValueError, "path not fully qualified: " + path
-        hostpath = os.path.join(self.nodedir, path[1:].replace("/", "."))
+        hostpath = os.path.join(self.nodedir,
+                                os.path.normpath(path).strip('/').replace('/', '.'))
         try:
             os.mkdir(hostpath)
         except OSError:

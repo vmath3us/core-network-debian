@@ -14,6 +14,39 @@ import heapq
 
 class EventLoop(object):
 
+    class Timer(threading.Thread):
+        '''\
+        Based on threading.Timer but cancel() returns if the timer was
+        already running.
+        '''
+
+        def __init__(self, interval, function, args=[], kwargs={}):
+            super(EventLoop.Timer, self).__init__()
+            self.interval = interval
+            self.function = function
+            self.args = args
+            self.kwargs = kwargs
+            self.finished = threading.Event()
+            self._running = threading.Lock()
+
+        def cancel(self):
+            '''\
+            Stop the timer if it hasn't finished yet.  Return False if
+            the timer was already running.
+            '''
+            locked = self._running.acquire(False)
+            if locked:
+                self.finished.set()
+                self._running.release()
+            return locked
+
+        def run(self):
+            self.finished.wait(self.interval)
+            with self._running:
+                if not self.finished.is_set():
+                    self.function(*self.args, **self.kwargs)
+                self.finished.set()
+
     class Event(object):
         def __init__(self, eventnum, time, func, *args, **kwds):
             self.eventnum = eventnum
@@ -45,9 +78,6 @@ class EventLoop(object):
         self.running = False
         self.start = None
 
-    def __del__(self):
-        self.stop()
-
     def __run_events(self):
         schedule = False
         while True:
@@ -73,7 +103,7 @@ class EventLoop(object):
                 return
             delay = self.queue[0].time - time.time()
             assert self.timer is None
-            self.timer = threading.Timer(delay, self.__run_events)
+            self.timer = EventLoop.Timer(delay, self.__run_events)
             self.timer.daemon = True
             self.timer.start()
 
@@ -116,10 +146,8 @@ class EventLoop(object):
             heapq.heappush(self.queue, event)
             head = self.queue[0]
             if prevhead is not None and prevhead != head:
-                if self.timer is not None and not self.timer.is_alive():
-                    self.timer.cancel()
+                if self.timer is not None and self.timer.cancel():
                     self.timer = None
-
             if self.running and self.timer is None:
                 self.__schedule_event()
         return event
